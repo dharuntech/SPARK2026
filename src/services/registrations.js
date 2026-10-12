@@ -84,9 +84,6 @@ async function createRegistration({ event, student: studentInput, source, adminI
     }
   } else {
     if (event.status !== 'PUBLISHED') throw ApiError.conflict('EVENT_NOT_PUBLISHED', 'Publish the event before registering students on-spot.');
-    if (!['ON_SPOT', 'BOTH'].includes(event.registrationMode)) {
-      throw ApiError.conflict('ON_SPOT_DISABLED', 'This event is website-registration only.');
-    }
     if (event.maxCapacity != null && av.reason === 'FULL') {
       throw ApiError.conflict('EVENT_FULL', require('./events').closedMessages.FULL);
     }

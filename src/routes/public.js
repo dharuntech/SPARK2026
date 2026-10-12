@@ -70,12 +70,29 @@ router.post(
   })
 );
 
-/** GET /api/settings — public site settings (home hero image). */
+/** GET /api/settings — public site settings (home hero image and gallery posters). */
 router.get(
   '/settings',
   asyncHandler(async (_req, res) => {
-    const hero = await prisma.siteSetting.findUnique({ where: { key: 'homeHeroImageUrl' } });
-    res.json({ ok: true, settings: { homeHeroImageUrl: hero ? hero.value : null } });
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    const [hero, gallery] = await Promise.all([
+      prisma.siteSetting.findUnique({ where: { key: 'homeHeroImageUrl' } }),
+      prisma.siteSetting.findUnique({ where: { key: 'homeGalleryImages' } }),
+    ]);
+    let galleryImages = [];
+    try {
+      if (gallery?.value) galleryImages = JSON.parse(gallery.value);
+      else if (hero?.value) galleryImages = [hero.value];
+    } catch (_) {
+      if (hero?.value) galleryImages = [hero.value];
+    }
+    res.json({
+      ok: true,
+      settings: {
+        homeHeroImageUrl: hero ? hero.value : (galleryImages[0] || null),
+        homeGalleryImages: galleryImages,
+      },
+    });
   })
 );
 

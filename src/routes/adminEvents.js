@@ -308,37 +308,125 @@ router.delete(
   })
 );
 
-/** POST /api/admin/settings/home-hero — persistent homepage photo upload. */
+/** POST /api/admin/settings/home-hero — persistent homepage poster/photo upload (supports multiple). */
 router.post(
   '/settings/home-hero',
-  uploadFields([{ name: 'image', maxCount: 1 }]),
+  uploadFields([{ name: 'image', maxCount: 10 }, { name: 'images', maxCount: 10 }]),
   csrfProtection,
   requireRole('SUPERADMIN', 'ADMIN'),
   asyncHandler(async (req, res) => {
-    const previous = await prisma.siteSetting.findUnique({ where: { key: 'homeHeroImageUrl' } });
-    const image = await persistUpload(req.files?.image?.[0], { category: 'site' });
+    const rawFiles = [...(req.files?.image || []), ...(req.files?.images || [])];
+    if (!rawFiles.length) throw ApiError.badRequest('No image files received.');
+
+    const uploadedUrls = [];
+    for (const f of rawFiles) {
+      const img = await persistUpload(f, { category: 'site' });
+      if (img?.url) uploadedUrls.push(img.url);
+    }
+
+    const currentGallery = await prisma.siteSetting.findUnique({ where: { key: 'homeGalleryImages' } });
+    let galleryList = [];
+    try {
+      if (currentGallery?.value) galleryList = JSON.parse(currentGallery.value);
+    } catch (_) {}
+
+    // Append newly uploaded images
+    galleryList.push(...uploadedUrls);
+
+    await prisma.siteSetting.upsert({
+      where: { key: 'homeGalleryImages' },
+      update: { value: JSON.stringify(galleryList) },
+      create: { key: 'homeGalleryImages', value: JSON.stringify(galleryList) },
+    });
+
+    const primaryUrl = galleryList[0] || uploadedUrls[0] || null;
     await prisma.siteSetting.upsert({
       where: { key: 'homeHeroImageUrl' },
-      update: { value: image.url },
-      create: { key: 'homeHeroImageUrl', value: image.url },
+      update: { value: primaryUrl || '' },
+      create: { key: 'homeHeroImageUrl', value: primaryUrl || '' },
     });
-    if (previous?.value) await removeUpload(previous.value);
-    await audit({ adminId: req.admin.id, action: 'settings.home_hero_updated', entityType: 'SiteSetting', entityId: 'homeHeroImageUrl', ip: req.ip });
-    res.json({ ok: true, homeHeroImageUrl: image.url, message: 'Home page photo updated.' });
+
+    await audit({
+      adminId: req.admin.id,
+      action: 'settings.home_gallery_updated',
+      entityType: 'SiteSetting',
+      entityId: 'homeGalleryImages',
+      metadata: { count: galleryList.length },
+      ip: req.ip,
+    });
+
+    res.json({
+      ok: true,
+      homeHeroImageUrl: primaryUrl,
+      homeGalleryImages: galleryList,
+      message: `${uploadedUrls.length} photo(s) added to home page gallery.`,
+    });
   })
 );
 
-/** DELETE /api/admin/settings/home-hero — revert to the built-in hero styling. */
+/** DELETE /api/admin/settings/home-gallery/:index — remove an individual photo by index. */
+router.delete(
+  '/settings/home-gallery/:index',
+  csrfProtection,
+  requireRole('SUPERADMIN', 'ADMIN'),
+  asyncHandler(async (req, res) => {
+    const idx = parseInt(req.params.index, 10);
+    const currentGallery = await prisma.siteSetting.findUnique({ where: { key: 'homeGalleryImages' } });
+    let galleryList = [];
+    try {
+      if (currentGallery?.value) galleryList = JSON.parse(currentGallery.value);
+    } catch (_) {}
+
+    if (!isNaN(idx) && idx >= 0 && idx < galleryList.length) {
+      const [removed] = galleryList.splice(idx, 1);
+      if (removed) await removeUpload(removed);
+      await prisma.siteSetting.upsert({
+        where: { key: 'homeGalleryImages' },
+        update: { value: JSON.stringify(galleryList) },
+        create: { key: 'homeGalleryImages', value: JSON.stringify(galleryList) },
+      });
+      await prisma.siteSetting.upsert({
+        where: { key: 'homeHeroImageUrl' },
+        update: { value: galleryList[0] || '' },
+        create: { key: 'homeHeroImageUrl', value: galleryList[0] || '' },
+      });
+    }
+
+    res.json({
+      ok: true,
+      homeHeroImageUrl: galleryList[0] || null,
+      homeGalleryImages: galleryList,
+      message: 'Photo removed from gallery.',
+    });
+  })
+);
+
+/** DELETE /api/admin/settings/home-hero — clear all uploaded photos. */
 router.delete(
   '/settings/home-hero',
   csrfProtection,
   requireRole('SUPERADMIN', 'ADMIN'),
   asyncHandler(async (req, res) => {
     const previous = await prisma.siteSetting.findUnique({ where: { key: 'homeHeroImageUrl' } });
-    await prisma.siteSetting.deleteMany({ where: { key: 'homeHeroImageUrl' } });
+    const currentGallery = await prisma.siteSetting.findUnique({ where: { key: 'homeGalleryImages' } });
+    if (currentGallery?.value) {
+      try {
+        const list = JSON.parse(currentGallery.value);
+        for (const item of list) await removeUpload(item);
+      } catch (_) {}
+    }
+    await prisma.siteSetting.deleteMany({
+      where: { key: { in: ['homeHeroImageUrl', 'homeGalleryImages'] } },
+    });
     if (previous?.value) await removeUpload(previous.value);
-    await audit({ adminId: req.admin.id, action: 'settings.home_hero_reset', entityType: 'SiteSetting', entityId: 'homeHeroImageUrl', ip: req.ip });
-    res.json({ ok: true, homeHeroImageUrl: null, message: 'Home page photo removed.' });
+    await audit({
+      adminId: req.admin.id,
+      action: 'settings.home_hero_reset',
+      entityType: 'SiteSetting',
+      entityId: 'homeHeroImageUrl',
+      ip: req.ip,
+    });
+    res.json({ ok: true, homeHeroImageUrl: null, homeGalleryImages: [], message: 'Home page photos cleared.' });
   })
 );
 

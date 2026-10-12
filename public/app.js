@@ -82,9 +82,19 @@ if($('eventSearch'))$('eventSearch').addEventListener('input',renderEvents);
 $('eventGrid').addEventListener('click',e=>{const r=e.target.closest('[data-reg]'),d=e.target.closest('[data-info]');
 if(r){if(r.disabled)return;const ev=eventById(r.dataset.reg);if(!ev)return;if(!ev.registrationOpen){showInfo(ev.name,'Registration closed','<div class="notice">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');return}selectEvent(ev);go(2)}
 if(d){const ev=eventById(d.dataset.info);if(!ev)return;
-const img=ev.imageUrl?'<img class="detail-img" src="'+esc(ev.imageUrl)+'" alt="'+esc(ev.name)+' poster" onerror="this.remove()">':'';
-const body='<div class="success">'+img+'<b>'+esc(ev.venue)+'</b><br>'+esc(ev.dateLabel)+' · '+esc(ev.timeLabel)+'<br><br>'+esc(ev.description)+'<br><br>Registration mode: '+esc(ev.modeLabel)+'<br>'+esc(seatLabel(ev))+(ev.registrationDeadlineLabel?'<br>Online registration closes: '+esc(ev.registrationDeadlineLabel):'')+(ev.brochureUrl?'<br><a class="mini" style="margin-top:8px;display:inline-flex" href="'+esc(ev.brochureUrl)+'" target="_blank" rel="noopener">View brochure</a>':'')+'</div>'+(ev.registrationOpen?'<div class="actions"><button class="cta" id="detailRegister">Register for this event</button></div>':'<div class="notice">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');
-showInfo(ev.name,ev.categoryLabel+' · '+ev.code,body);
+const brochureImg = ev.brochureUrl || ev.imageUrl;
+const topBrochure = brochureImg ? '<div class="detail-brochure-card" data-lightbox-src="'+esc(brochureImg)+'" data-lightbox-title="'+esc(ev.name)+' Brochure &amp; Poster" title="Click to view full screen"><img class="detail-brochure-img" src="'+esc(brochureImg)+'" alt="'+esc(ev.name)+' brochure" onerror="this.parentElement.remove()"><div class="detail-brochure-badge">🔍 Tap to open full screen</div></div>' : '';
+const metaGrid = '<div class="detail-meta-grid">'
+  + '<div class="detail-meta-card"><span class="detail-label">VENUE</span><b class="detail-val">'+esc(ev.venue)+'</b></div>'
+  + '<div class="detail-meta-card"><span class="detail-label">DATE &amp; TIME</span><b class="detail-val">'+esc(ev.dateLabel)+' · '+esc(ev.timeLabel)+'</b></div>'
+  + '<div class="detail-meta-card"><span class="detail-label">REGISTRATION MODE</span><b class="detail-val">'+esc(ev.modeLabel)+'</b></div>'
+  + '<div class="detail-meta-card"><span class="detail-label">PARTICIPANTS</span><b class="detail-val">'+esc(seatLabel(ev))+'</b></div>'
+  + '</div>';
+const descBox = '<div class="detail-desc-box"><h4>About this event</h4><p>'+esc(ev.description)+'</p>'
+  + (ev.registrationDeadlineLabel ? '<div class="detail-deadline">⏰ Online registration closes: <strong>'+esc(ev.registrationDeadlineLabel)+'</strong></div>' : '')
+  + '</div>';
+const body = topBrochure + metaGrid + descBox + (ev.registrationOpen ? '<div class="actions" style="margin-top:14px"><button class="cta" id="detailRegister">Register for this event</button></div>' : '<div class="notice" style="margin-top:14px">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');
+showInfo(ev.name, ev.categoryLabel+' · '+ev.code, body);
 const dr=$('detailRegister');if(dr)dr.onclick=()=>{closeInfo();selectEvent(ev);go(2)}}});
 function selectEvent(ev){if(!ev)return;selectedId=ev.id;updateSelected()}
 function updateSelected(){const e=eventById(selectedId)||events[0]||null;
@@ -220,7 +230,7 @@ function renderEventSelectors(){
   scan.innerHTML=adminEvents.filter(e=>e.status==='PUBLISHED'||e.status==='COMPLETED').map(e=>'<option value="'+esc(e.id)+'">'+esc(e.code+' · '+e.name)+'</option>').join('')||'<option value="">Publish an event first</option>';
   if(keepScan)scan.value=keepScan;
   const onspot=$('onspotEventSelect'),keepOn=onspot.value;
-  onspot.innerHTML=adminEvents.filter(e=>e.registrationMode!=='WEBSITE').map(e=>'<option value="'+esc(e.id)+'">'+esc(e.code+' · '+e.name)+' · '+esc(e.modeLabel)+'</option>').join('')||'<option value="">No on-spot events</option>';
+  onspot.innerHTML=adminEvents.filter(e=>e.status==='PUBLISHED').map(e=>'<option value="'+esc(e.id)+'">'+esc(e.code+' · '+e.name)+' ('+esc(e.modeLabel)+')</option>').join('')||'<option value="">No published events</option>';
   if(keepOn)onspot.value=keepOn;
 }
 function renderAdmin(){renderAdminStats();renderAdminEventsTable();renderEventSelectors();renderRegsTable()}
@@ -538,36 +548,175 @@ $('scanManualForm').addEventListener('submit',e=>{
   $('scanManualId').value='';
 });
 $('scanEventSelect').addEventListener('change',()=>{scanEventId=$('scanEventSelect').value;lastScan={code:'',at:0}});
-/* ── home page photo (persistent upload, not base64 in the browser) ── */
-$('heroFile').addEventListener('change',async e=>{
-  const f=e.target.files[0];if(!f)return;
-  if(f.size>4.5*1024*1024){$('heroMsg').textContent='Please select an image smaller than 4.5 MB.';return}
-  if(!adminAuthed&&!(await restoreSession())){openLogin();return}
-  $('heroMsg').textContent='Uploading photo…';
-  const fd=new FormData();fd.append('image',f);
-  try{
-    const d=await api('/api/admin/settings/home-hero',{method:'POST',form:fd});
-    server.heroImage=d.homeHeroImageUrl;
-    if(window.__sparkHero)window.__sparkHero(d.homeHeroImageUrl);
-    $('heroMsg').textContent='Home page photo updated for every visitor.';
-    toast('Home photo updated','The new hero image is live for all students.');
-  }catch(ex){$('heroMsg').textContent=ex.message}
+/* ── Home Showcase Gallery & Lightbox Controller ── */
+let currentZoom = 1;
+server.galleryImages = [];
+
+function renderHomeGallery(imgs){
+  const grid = $('homeShowcaseGrid'), wrap = $('homeShowcase');
+  if(!grid || !wrap) return;
+  const list = Array.isArray(imgs) ? imgs.filter(Boolean) : (imgs ? [imgs] : []);
+  if(!list.length){
+    wrap.classList.add('hidden');
+    grid.innerHTML = '';
+    return;
+  }
+  grid.innerHTML = list.map((src, i) =>
+    '<div class="showcase-card" data-lightbox-src="'+esc(src)+'" data-lightbox-title="Symposium Poster '+(i+1)+'">'
+    + '<img src="'+esc(src)+'" alt="Symposium Poster '+(i+1)+'" loading="lazy">'
+    + '<div class="zoom-pill">🔍 Tap full screen</div>'
+    + '</div>'
+  ).join('');
+  wrap.classList.remove('hidden');
+}
+
+function renderAdminGallery(){
+  const box = $('adminGalleryList');
+  if(!box) return;
+  const list = server.galleryImages || [];
+  if(!list.length){
+    box.innerHTML = '<span class="helper">No photos uploaded yet.</span>';
+    return;
+  }
+  box.innerHTML = list.map((src, i) =>
+    '<div class="admin-gallery-item">'
+    + '<img src="'+esc(src)+'" alt="Gallery item '+(i+1)+'">'
+    + '<button class="del-btn" data-del-img="'+i+'" type="button" title="Delete this image">✕</button>'
+    + '</div>'
+  ).join('');
+}
+
+function openLightbox(src, title){
+  const overlay = $('lightboxOverlay'), img = $('lightboxImg'), t = $('lightboxTitle');
+  if(!overlay || !img) return;
+  img.src = src;
+  if(t) t.textContent = title || 'Brochure Viewer';
+  currentZoom = 1;
+  img.style.transform = 'scale(1)';
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox(){
+  const overlay = $('lightboxOverlay'), img = $('lightboxImg');
+  if(!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  if(img){ img.src = ''; img.style.transform = 'scale(1)'; }
+  document.body.style.overflow = '';
+}
+
+function setLightboxZoom(delta, absolute){
+  const img = $('lightboxImg');
+  if(!img) return;
+  if(absolute !== undefined) currentZoom = absolute;
+  else currentZoom = Math.min(3.5, Math.max(0.6, currentZoom + delta));
+  img.style.transform = 'scale(' + currentZoom.toFixed(2) + ')';
+  const rBtn = $('lightboxZoomReset');
+  if(rBtn) rBtn.textContent = Math.round(currentZoom * 100) + '%';
+}
+
+document.addEventListener('click', e => {
+  const trigger = e.target.closest('[data-lightbox-src]');
+  if(trigger){
+    e.preventDefault();
+    openLightbox(trigger.dataset.lightboxSrc, trigger.dataset.lightboxTitle);
+    return;
+  }
+  const delBtn = e.target.closest('[data-del-img]');
+  if(delBtn){
+    e.preventDefault();
+    const idx = parseInt(delBtn.dataset.delImg, 10);
+    deleteGalleryImg(idx);
+    return;
+  }
 });
-$('heroReset').addEventListener('click',async()=>{
-  if(!adminAuthed&&!(await restoreSession())){openLogin();return}
-  $('heroMsg').textContent='Removing photo…';
+
+async function deleteGalleryImg(idx){
+  if(!adminAuthed && !(await restoreSession())){ openLogin(); return; }
+  $('heroMsg').textContent = 'Removing photo…';
   try{
-    await api('/api/admin/settings/home-hero',{method:'DELETE'});
-    server.heroImage=null;
-    if(window.__sparkHero)window.__sparkHero('');
-    $('heroFile').value='';
-    $('heroMsg').textContent='Home page photo removed — the built-in hero styling is back.';
-    toast('Photo removed','Hero background reset to default.');
-  }catch(ex){$('heroMsg').textContent=ex.message}
+    const d = await api('/api/admin/settings/home-gallery/' + idx, { method: 'DELETE' });
+    server.galleryImages = d.homeGalleryImages || [];
+    renderHomeGallery(server.galleryImages);
+    renderAdminGallery();
+    $('heroMsg').textContent = 'Photo removed.';
+    toast('Photo removed', 'Gallery updated.');
+  }catch(ex){
+    $('heroMsg').textContent = ex.message;
+  }
+}
+
+if($('lightboxClose')) $('lightboxClose').addEventListener('click', closeLightbox);
+if($('lightboxZoomIn')) $('lightboxZoomIn').addEventListener('click', () => setLightboxZoom(0.3));
+if($('lightboxZoomOut')) $('lightboxZoomOut').addEventListener('click', () => setLightboxZoom(-0.3));
+if($('lightboxZoomReset')) $('lightboxZoomReset').addEventListener('click', () => setLightboxZoom(0, 1));
+if($('lightboxViewport')) $('lightboxViewport').addEventListener('click', e => {
+  if(e.target === $('lightboxViewport')) closeLightbox();
+  else if(e.target === $('lightboxImg')) {
+    setLightboxZoom(0, currentZoom === 1 ? 1.6 : 1);
+  }
 });
+window.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && $('lightboxOverlay') && $('lightboxOverlay').classList.contains('show')){
+    closeLightbox();
+  }
+});
+
+/* ── home page photo & gallery upload ── */
+$('heroFile').addEventListener('change', async e => {
+  const files = Array.from(e.target.files);
+  if(!files.length) return;
+  const oversized = files.filter(f => f.size > 4.8 * 1024 * 1024);
+  if(oversized.length){
+    $('heroMsg').textContent = 'Each image must be smaller than 4.8 MB.';
+    return;
+  }
+  if(!adminAuthed && !(await restoreSession())){ openLogin(); return; }
+  $('heroMsg').textContent = 'Uploading ' + files.length + ' photo' + (files.length > 1 ? 's' : '') + '…';
+  const fd = new FormData();
+  files.forEach(f => {
+    fd.append('images', f);
+  });
+  if(files[0]) fd.append('image', files[0]);
+  try{
+    const d = await api('/api/admin/settings/home-hero', { method: 'POST', form: fd });
+    server.galleryImages = d.homeGalleryImages || [];
+    renderHomeGallery(server.galleryImages);
+    renderAdminGallery();
+    $('heroFile').value = '';
+    $('heroMsg').textContent = files.length + ' photo' + (files.length > 1 ? 's' : '') + ' added to the showcase.';
+    toast('Photos uploaded', 'Live on the Home page showcase.');
+  }catch(ex){
+    $('heroMsg').textContent = ex.message;
+  }
+});
+
+$('heroReset').addEventListener('click', async () => {
+  if(!adminAuthed && !(await restoreSession())){ openLogin(); return; }
+  $('heroMsg').textContent = 'Clearing photos…';
+  try{
+    await api('/api/admin/settings/home-hero', { method: 'DELETE' });
+    server.galleryImages = [];
+    renderHomeGallery([]);
+    renderAdminGallery();
+    $('heroFile').value = '';
+    $('heroMsg').textContent = 'All photos removed from the showcase.';
+    toast('Photos cleared', 'Showcase reset.');
+  }catch(ex){
+    $('heroMsg').textContent = ex.message;
+  }
+});
+
 /* ═════════════════════════════ BOOT ═════════════════════════════ */
 (async function boot(){
-  try{const d=await api('/api/settings');server.heroImage=d.settings.homeHeroImageUrl||null;if(window.__sparkHero)window.__sparkHero(server.heroImage)}catch(ex){}
+  try{
+    const d = await api('/api/settings');
+    server.galleryImages = d.settings.homeGalleryImages || (d.settings.homeHeroImageUrl ? [d.settings.homeHeroImageUrl] : []);
+    renderHomeGallery(server.galleryImages);
+    renderAdminGallery();
+  }catch(ex){}
   await loadEvents();
   prefillStudent();
   renderEvents();updateSelected();
