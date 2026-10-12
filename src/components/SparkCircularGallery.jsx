@@ -11,7 +11,7 @@ export default function SparkCircularGallery({ items, onItemClick }) {
         borderRadius={0.06}
         scrollEase={0.05}
         itemAspect={0.52}
-        itemSize={1.05}
+        itemSize={1.42}
         shadow={0.16}
         showTitles={false}
         items={items}
