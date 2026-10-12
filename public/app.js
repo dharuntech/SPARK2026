@@ -27,10 +27,10 @@ function trackPass(p){passes=[p,...passes.filter(x=>x.registrationId!==p.registr
 function prefillStudent(){const s=store.get(LS_STUDENT,null);if(!s)return;if(!$('rName').value)$('rName').value=s.name||'';if(!$('rRegno').value)$('rRegno').value=s.registerNumber||'';if(!$('rDept').value)$('rDept').value=s.department||'';if(!$('rYear').value&&s.academicYear)$('rYear').value=s.academicYear;if(!$('rSection').value)$('rSection').value=s.section||'';if(!$('rEmail').value)$('rEmail').value=s.email||''}
 function downloadBlob(blob,filename){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 async function downloadFile(url,fallbackName){const res=await api(url,{download:true});const cd=res.headers.get('Content-Disposition')||'';const m=/filename="?([^";]+)"?/.exec(cd);const blob=await res.blob();const name=m?m[1]:fallbackName;downloadBlob(blob,name);return name}
-const sections=[0,1,2,3,4].map(i=>$('s'+i));
+const sections=[0,1,2,3,4,5].map(i=>$('s'+i));
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}function save(){/* PostgreSQL is authoritative — nothing is mirrored in this browser */}function toast(title,msg){const t=$('toast');t.innerHTML='<strong>'+esc(title)+'</strong>'+esc(msg);t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),3600)}
 function go(i){
-i=Math.max(0,Math.min(4,i));
+i=Math.max(0,Math.min(5,i));
 const out=sections[currentSection],inn=sections[i];
 if(i===currentSection&&inn.classList.contains('show'))return;
 const dir=i>currentSection?1:-1,reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;

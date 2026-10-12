@@ -6,3 +6,5 @@ var/uploads/*
 !var/uploads/.gitkeep
 *.log
 .DS_Store
+
+.vercel
