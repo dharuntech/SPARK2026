@@ -7,9 +7,13 @@ export default function SparkCircularGallery({ items, onItemClick }) {
     <div className="spark-circular-gallery-container" style={{ position: 'relative' }}>
       <CircularGallery
         bend={3}
-        textColor="#ffffff"
-        borderRadius={0.05}
+        textColor="#17324a"
+        borderRadius={0.06}
         scrollEase={0.05}
+        itemAspect={0.52}
+        itemSize={1.05}
+        shadow={0.16}
+        showTitles={false}
         items={items}
         onItemClick={onItemClick}
       />

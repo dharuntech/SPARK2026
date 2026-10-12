@@ -1,52 +1,3 @@
-
-function openEventDetails(ev){
-  if(!ev)return;
-  const brochureImg = ev.brochureUrl || ev.imageUrl;
-  const topBrochure = brochureImg ? '<div class="detail-brochure-card" data-lightbox-src="'+esc(brochureImg)+'" data-lightbox-title="'+esc(ev.name)+' Brochure &amp; Poster" title="Click to view full screen"><img class="detail-brochure-img" src="'+esc(brochureImg)+'" alt="'+esc(ev.name)+' brochure" onerror="this.parentElement.remove()"><div class="detail-brochure-badge">🔍 Tap to open full screen</div></div>' : '';
-  const metaGrid = '<div class="detail-meta-grid">'
-    + '<div class="detail-meta-card"><span class="detail-label">VENUE</span><b class="detail-val">'+esc(ev.venue)+'</b></div>'
-    + '<div class="detail-meta-card"><span class="detail-label">DATE &amp; TIME</span><b class="detail-val">'+esc(ev.dateLabel)+' • '+esc(ev.timeLabel)+'</b></div>'
-    + '<div class="detail-meta-card"><span class="detail-label">REGISTRATION MODE</span><b class="detail-val">'+esc(ev.modeLabel)+'</b></div>'
-    + '<div class="detail-meta-card"><span class="detail-label">PARTICIPANTS</span><b class="detail-val">'+esc(seatLabel(ev))+'</b></div>'
-    + '</div>';
-  const descBox = '<div class="detail-desc-box"><h4>About this event</h4><p>'+esc(ev.description)+'</p>'
-    + (ev.registrationDeadlineLabel ? '<div class="detail-deadline">⏰ Online registration closes: <strong>'+esc(ev.registrationDeadlineLabel)+'</strong></div>' : '')
-    + '</div>';
-  const body = topBrochure + metaGrid + descBox + (ev.registrationOpen ? '<div class="actions" style="margin-top:14px"><button class="cta" id="detailRegister">Register for this event</button></div>' : '<div class="notice" style="margin-top:14px">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');
-  showInfo(ev.name, ev.categoryLabel+' • '+ev.code, body);
-  const dr=$('detailRegister');if(dr)dr.onclick=()=>{closeInfo();selectEvent(ev);go(2)};
-}
-
-function updateCircularGallery(){
-  const root = $('circularGalleryRoot');
-  if(!root || typeof window.mountSparkCircularGallery !== 'function') return;
-  if(!events || !events.length) return;
-
-  const filtered = activeFilter === 'ALL' ? events : events.filter(e => e.category === activeFilter);
-  const listToDisplay = filtered.length ? filtered : events;
-
-  const galleryItems = listToDisplay.map(e => ({
-    id: e.id,
-    image: e.imageUrl || e.brochureUrl || '/images/spark25-showcase-tracks.png',
-    text: e.name,
-    description: (e.categoryLabel || 'Spark\'26 Event') + ' • ' + (e.venue || 'Campus Venue') + ' • ' + (e.dateLabel || 'Symposium Day'),
-    alt: e.name + ' poster',
-    category: e.category,
-    categoryLabel: e.categoryLabel,
-    code: e.code
-  }));
-
-  window.mountSparkCircularGallery(root, {
-    items: galleryItems,
-    onItemClick: (item, index) => {
-      const ev = eventById(item.id || item.text) || listToDisplay[index] || events[index];
-      if(ev){
-        openEventDetails(ev);
-      }
-    }
-  });
-}
-
 (function(){'use strict';
 const $=id=>document.getElementById(id);
 /* ── Spark'26 data layer ────────────────────────────────────────────────
@@ -104,10 +55,10 @@ o.onfinish=()=>{out.classList.remove('show','leaving');o.cancel()}
 document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>go(0));document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')go(0)});$('heroEvents')?.addEventListener('click',()=>go(1));$('navReg').onclick=()=>go(1);window.sparkGo=go;
 (function(){
 let sx=0,sy=0,st=0,tracking=false;
-const blocked=t=>!t||!t.closest||t.closest('input,select,textarea,.table-wrap,.overlay.show,.admin.show,.modal');
-document.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0){tracking=false;return}tracking=!blocked(e.target)&&!(e.pointerType==='mouse'&&e.target.closest&&e.target.closest('#arena3d'));if(!tracking)return;sx=e.clientX;sy=e.clientY;st=performance.now()});
+const blocked=t=>!t||!t.closest||t.closest('input,select,textarea,.table-wrap,.overlay.show,.admin.show,.modal,#galleryStage,#circularGalleryRoot,.circular-gallery');
+document.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0){tracking=false;return}if(e.target&&e.target.closest&&e.target.closest('#galleryStage,#circularGalleryRoot,.circular-gallery')){tracking=false;return}tracking=!blocked(e.target)&&!(e.pointerType==='mouse'&&e.target.closest&&e.target.closest('#arena3d'));if(!tracking)return;sx=e.clientX;sy=e.clientY;st=performance.now()});
 document.addEventListener('pointercancel',()=>{tracking=false});
-document.addEventListener('pointerup',e=>{if(!tracking)return;tracking=false;const dx=e.clientX-sx,dy=e.clientY-sy;if(performance.now()-st>900||Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.5)return;if(String(getSelection()||'').length)return;go(currentSection+(dx<0?1:-1))});
+document.addEventListener('pointerup',e=>{if(e.target&&e.target.closest&&e.target.closest('#galleryStage,#circularGalleryRoot,.circular-gallery')){tracking=false;return}if(!tracking)return;tracking=false;const dx=e.clientX-sx,dy=e.clientY-sy;if(performance.now()-st>900||Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.5)return;if(String(getSelection()||'').length)return;go(currentSection+(dx<0?1:-1))});
 document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('input,select,textarea'))return;if(document.querySelector('.overlay.show,.admin.show'))return;if(e.key==='ArrowRight')go(currentSection+1);else if(e.key==='ArrowLeft')go(currentSection-1)});
 /* subtle 3D tilt on event cards (mouse only) */
 const grid=$('eventGrid');let cur=null;const reset=c=>{if(!c)return;c.style.setProperty('--rx','0deg');c.style.setProperty('--ry','0deg');c.classList.remove('tilting')};
@@ -135,6 +86,281 @@ function openEventDetails(ev){
   const dr=$('detailRegister');if(dr)dr.onclick=()=>{closeInfo();selectEvent(ev);go(2)};
 }
 
+
+const cardTextureCache = new Map();
+const cardImageElementCache = new Map();
+
+function drawEventCardCanvas(ev, img) {
+  const width = 520;
+  const height = 1000;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+
+  const r = 36;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(width - r, 0);
+  ctx.arcTo(width, 0, width, r, r);
+  ctx.lineTo(width, height - r);
+  ctx.arcTo(width, height, width - r, height, r);
+  ctx.lineTo(r, height);
+  ctx.arcTo(0, height, 0, height - r, r);
+  ctx.lineTo(0, r);
+  ctx.arcTo(0, 0, r, 0, r);
+  ctx.closePath();
+  ctx.clip();
+
+  // Clean white card background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  // Top poster image
+  const imgH = 400;
+  if (img && img.complete && img.naturalWidth) {
+    const imgAspect = img.naturalWidth / img.naturalHeight;
+    const targetAspect = width / imgH;
+    let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+    if (imgAspect > targetAspect) {
+      sw = sh * targetAspect;
+      sx = (img.naturalWidth - sw) / 2;
+    } else {
+      sh = sw / targetAspect;
+      sy = (img.naturalHeight - sh) / 2;
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, width, imgH);
+  } else {
+    const grad = ctx.createLinearGradient(0, 0, width, imgH);
+    grad.addColorStop(0, '#1e293b');
+    grad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, imgH);
+  }
+
+  // Neon top accent stripe
+  const topStripe = ctx.createLinearGradient(0, 0, width, 0);
+  topStripe.addColorStop(0, '#38bdf8');
+  topStripe.addColorStop(0.5, '#6366f1');
+  topStripe.addColorStop(1, '#ec4899');
+  ctx.fillStyle = topStripe;
+  ctx.fillRect(0, 0, width, 6);
+
+  // Content area
+  const padX = 36;
+  const contentTop = imgH + 40;
+
+  // Code: E04
+  ctx.fillStyle = '#64748b';
+  ctx.font = '700 19px "JetBrains Mono", monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(ev.code || 'E01', padX, contentTop);
+
+  // Category badge: NON-TECHNICAL (pill)
+  const catText = (ev.categoryLabel || ev.category || 'EVENT').toUpperCase();
+  ctx.font = '700 13px "JetBrains Mono", monospace';
+  const catW = ctx.measureText(catText).width;
+  const pillW = catW + 32;
+  const pillH = 34;
+  const pillX = width - padX - pillW;
+  const pillY = contentTop - pillH / 2;
+
+  ctx.fillStyle = '#e8efff';
+  ctx.beginPath();
+  ctx.arc(pillX + pillH / 2, pillY + pillH / 2, pillH / 2, Math.PI / 2, Math.PI * 1.5);
+  ctx.arc(pillX + pillW - pillH / 2, pillY + pillH / 2, pillH / 2, -Math.PI / 2, Math.PI / 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = '#3b5bfd';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(catText, pillX + pillW / 2, pillY + pillH / 2);
+
+  // Title: IPL AUCTION
+  const titleY = contentTop + 44;
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '800 32px "DM Sans", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  
+  let title = (ev.name || '').toUpperCase();
+  if (ctx.measureText(title).width > (width - padX * 2)) {
+    while (title.length > 3 && ctx.measureText(title + '...').width > (width - padX * 2)) {
+      title = title.slice(0, -1);
+    }
+    title += '...';
+  }
+  ctx.fillText(title, padX, titleY);
+
+  // Description with emojis
+  const descY = titleY + 52;
+  ctx.fillStyle = '#475569';
+  ctx.font = '400 16.5px "DM Sans", sans-serif';
+  ctx.textBaseline = 'top';
+
+  const descText = ev.description || 'Experience cutting-edge symposium events at Spark26.';
+  const words = descText.split(' ');
+  let line = '';
+  let lineY = descY;
+  let lines = 0;
+  for (let n = 0; n < words.length; n++) {
+    const test = line + words[n] + ' ';
+    if (ctx.measureText(test).width > (width - padX * 2) && n > 0) {
+      ctx.fillText(line.trim(), padX, lineY);
+      line = words[n] + ' ';
+      lineY += 26;
+      lines++;
+      if (lines >= 4) break;
+    } else {
+      line = test;
+    }
+  }
+  if (lines < 4 && line.trim()) {
+    ctx.fillText(line.trim(), padX, lineY);
+  }
+
+  // KV Grid
+  const kvTop = 670;
+  const col2X = width / 2 + 10;
+
+  // VENUE & TIME
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '700 12px "JetBrains Mono", monospace';
+  ctx.fillText('VENUE', padX, kvTop);
+  ctx.fillText('TIME', col2X, kvTop);
+
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '700 19px "DM Sans", sans-serif';
+  ctx.fillText(ev.venue || 'Campus Venue', padX, kvTop + 22);
+  
+  const timeText = (ev.dateLabel || '15 Oct') + ' · ' + (ev.timeLabel ? ev.timeLabel.split('–')[0].trim() : '10:00 AM');
+  ctx.font = '700 14.5px "DM Sans", sans-serif';
+  ctx.fillText(timeText, col2X, kvTop + 22);
+
+  // MODE & STATUS
+  const row2Y = kvTop + 62;
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '700 12px "JetBrains Mono", monospace';
+  ctx.fillText('MODE', padX, row2Y);
+  ctx.fillText('STATUS', col2X, row2Y);
+
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '700 19px "DM Sans", sans-serif';
+  ctx.fillText(ev.modeLabel || 'Website', padX, row2Y + 22);
+
+  const isOpen = ev.registrationOpen;
+  ctx.fillStyle = isOpen ? '#2563eb' : '#dc2626';
+  ctx.font = '800 18px "DM Sans", sans-serif';
+  ctx.fillText(isOpen ? 'OPEN' : 'CLOSED', col2X, row2Y + 22);
+
+  // Registered students count
+  const seatsY = row2Y + 54;
+  ctx.fillStyle = '#64748b';
+  ctx.font = '600 14px "JetBrains Mono", monospace';
+  const seatsText = seatLabel(ev);
+  ctx.fillText(seatsText, padX, seatsY);
+
+  // Action buttons
+  const btnY = height - 100;
+  const btnH = 54;
+  const btnW = (width - padX * 2 - 18) / 2;
+
+  // Register button (purple/blue pill)
+  const regX = padX;
+  const regGrad = ctx.createLinearGradient(regX, 0, regX + btnW, 0);
+  regGrad.addColorStop(0, '#3b5bfd');
+  regGrad.addColorStop(1, '#5a38ec');
+  ctx.fillStyle = regGrad;
+  ctx.beginPath();
+  ctx.arc(regX + btnH / 2, btnY + btnH / 2, btnH / 2, Math.PI / 2, Math.PI * 1.5);
+  ctx.arc(regX + btnW - btnH / 2, btnY + btnH / 2, btnH / 2, -Math.PI / 2, Math.PI / 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 19px "DM Sans", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Register', regX + btnW / 2, btnY + btnH / 2);
+
+  // Details button (white pill with outline)
+  const detX = width / 2 + 9;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(detX + btnH / 2, btnY + btnH / 2, btnH / 2, Math.PI / 2, Math.PI * 1.5);
+  ctx.arc(detX + btnW - btnH / 2, btnY + btnH / 2, btnH / 2, -Math.PI / 2, Math.PI / 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+
+  ctx.fillStyle = '#1e293b';
+  ctx.font = '700 19px "DM Sans", sans-serif';
+  ctx.fillText('Details', detX + btnW / 2, btnY + btnH / 2);
+
+  ctx.restore();
+
+  // Subtle card border
+  ctx.save();
+  ctx.strokeStyle = 'rgba(219, 234, 254, 0.7)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(width - r, 0);
+  ctx.arcTo(width, 0, width, r, r);
+  ctx.lineTo(width, height - r);
+  ctx.arcTo(width, height, width - r, height, r);
+  ctx.lineTo(r, height);
+  ctx.arcTo(0, height, 0, height - r, r);
+  ctx.lineTo(0, r);
+  ctx.arcTo(0, 0, r, 0, r);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+
+  return canvas.toDataURL('image/png');
+}
+
+function getEventCardTexture(ev, onReady) {
+  const imgSrc = ev.imageUrl || ev.brochureUrl || '/images/spark25-showcase-tracks.png';
+  const cacheKey = ev.id + '_' + ev.registeredCount + '_' + ev.registrationOpen + '_' + imgSrc;
+  if (cardTextureCache.has(cacheKey)) {
+    return cardTextureCache.get(cacheKey);
+  }
+
+  let cachedImg = cardImageElementCache.get(imgSrc);
+  if (cachedImg && cachedImg.complete && cachedImg.naturalWidth) {
+    const dataUrl = drawEventCardCanvas(ev, cachedImg);
+    cardTextureCache.set(cacheKey, dataUrl);
+    return dataUrl;
+  }
+
+  // Pre-generate with gradient/fallback
+  const tempUrl = drawEventCardCanvas(ev, null);
+  cardTextureCache.set(cacheKey, tempUrl);
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    cardImageElementCache.set(imgSrc, img);
+    const readyUrl = drawEventCardCanvas(ev, img);
+    cardTextureCache.set(cacheKey, readyUrl);
+    if (onReady) onReady();
+  };
+  img.onerror = () => {
+    cardImageElementCache.set(imgSrc, img);
+  };
+  img.src = imgSrc;
+
+  return tempUrl;
+}
+
 function updateCircularGallery(){
   const root = $('circularGalleryRoot');
   if(!root || typeof window.mountSparkCircularGallery !== 'function') return;
@@ -143,9 +369,17 @@ function updateCircularGallery(){
   const filtered = activeFilter === 'ALL' ? events : events.filter(e => e.category === activeFilter);
   const listToDisplay = filtered.length ? filtered : events;
 
+  let refreshScheduled = false;
+  const onPosterReady = () => {
+    if (!refreshScheduled) {
+      refreshScheduled = true;
+      setTimeout(() => { updateCircularGallery(); }, 60);
+    }
+  };
+
   const galleryItems = listToDisplay.map(e => ({
     id: e.id,
-    image: e.imageUrl || e.brochureUrl || '/images/spark25-showcase-tracks.png',
+    image: getEventCardTexture(e, onPosterReady),
     text: e.name,
     description: (e.categoryLabel || 'Spark\'26 Event') + ' • ' + (e.venue || 'Campus Venue') + ' • ' + (e.dateLabel || 'Symposium Day'),
     alt: e.name + ' poster',
@@ -164,6 +398,7 @@ function updateCircularGallery(){
     }
   });
 }
+
 
 function cardMedia(e){const fb='<span>'+esc(e.code)+'</span><b>'+esc(e.categoryLabel)+'</b>';return e.imageUrl?'<div class="card-media"><img loading="lazy" alt="'+esc(e.name)+' poster" src="'+esc(e.imageUrl)+'" onerror="this.onerror=null;this.parentElement.className=\'card-media fallback\';this.parentElement.innerHTML=\''+fb+'\'"></div>':'<div class="card-media fallback">'+fb+'</div>'}
 function seatLabel(e){return e.maxCapacity!=null?(e.registeredCount+' / '+e.maxCapacity+' registered'):(e.registeredCount+(e.registeredCount===1?' student registered':' students registered'))}

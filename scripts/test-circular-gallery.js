@@ -138,6 +138,32 @@ async function testGallery() {
     if (!check.noHorizontalOverflow) {
       console.error(`HORIZONTAL OVERFLOW DETECTED at ${w}px! scrollWidth=${check.scrollWidth}, clientWidth=${check.clientWidth}`);
     }
+
+    // TEST: Dragging inside galleryStage must NOT exit the page!
+    const dragGalleryResult = await page.evaluate(async () => {
+      const stage = document.getElementById('galleryStage');
+      if (!stage) return { success: false, reason: 'no stage' };
+      const rect = stage.getBoundingClientRect();
+      const startX = rect.left + rect.width * 0.7;
+      const endX = rect.left + rect.width * 0.2;
+      const centerY = rect.top + rect.height * 0.5;
+
+      // Dispatch pointerdown, move, pointerup
+      const down = new PointerEvent('pointerdown', { clientX: startX, clientY: centerY, pointerType: 'touch', bubbles: true });
+      stage.dispatchEvent(down);
+      await new Promise(r => setTimeout(r, 100));
+      const up = new PointerEvent('pointerup', { clientX: endX, clientY: centerY, pointerType: 'touch', bubbles: true });
+      stage.dispatchEvent(up);
+
+      return {
+        sectionAfterDrag: document.body.dataset.page
+      };
+    });
+
+    console.log(`Swipe test inside gallery on ${w}px:`, dragGalleryResult);
+    if (dragGalleryResult.sectionAfterDrag !== '1') {
+      throw new Error(`FAILURE: Dragging gallery changed section to ${dragGalleryResult.sectionAfterDrag}! Expected 1.`);
+    }
   }
 
   // Mobile screenshot at 390px
