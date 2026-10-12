@@ -174,7 +174,7 @@ async function openAdmin(){
   $('adminPortal').classList.add('show');$('adminPortal').setAttribute('aria-hidden','false');
   await refreshAdmin();
 }
-function closeAdmin(){$('adminPortal').classList.remove('show');$('adminPortal').setAttribute('aria-hidden','true');go(currentSection)}
+function closeAdmin(){$('adminPortal').classList.remove('show');$('adminPortal').setAttribute('aria-hidden','true');showAdminMainView();go(currentSection)}
 $('adminHome').onclick=()=>closeAdmin();
 $('adminLogout').onclick=async()=>{
   try{await api('/api/admin/auth/logout',{method:'POST'})}catch(ex){}
@@ -280,43 +280,143 @@ $('exportRegs').onclick=async()=>{
 };
 /* ── event create / edit form ── */
 const EVENT_FIELD_MAP={eName:'name',eCategory:'category',eVenue:'venue',eDate:'eventDate',eStart:'startTime',eEnd:'endTime',eMode:'registrationMode',eDesc:'description',eDeadline:'registrationDeadline',eCapacity:'maxCapacity',eStatus:'status'};
-function resetEventForm(){$('eventForm').reset();$('editEventId').value='';$('eventFormTitle').textContent='Create an event';$('eventSubmit').textContent='Save event';$('cancelEdit').classList.add('hidden');$('brochurePreview').classList.add('hidden');$('imagePreview').classList.add('hidden');$('eventFormError').textContent='';$('eStatus').value='DRAFT'}
+function showAdminEventForm(mode='create',ev=null){
+  const mainView=$('adminMainView'),formView=$('adminEventCreateView');
+  if(mainView)mainView.classList.add('hidden');
+  if(formView)formView.classList.remove('hidden');
+  $('adminPortal').scrollTo({top:0,behavior:'smooth'});
+  if(mode==='edit'&&ev)fillEventForm(ev);
+  else{resetEventForm();const f=$('eName');f&&f.focus()}
+}
+function showAdminMainView(){
+  const formView=$('adminEventCreateView'),mainView=$('adminMainView');
+  if(formView)formView.classList.add('hidden');
+  if(mainView)mainView.classList.remove('hidden');
+  $('adminPortal').scrollTo({top:0,behavior:'smooth'});
+}
+function resetEventForm(){
+  $('eventForm').reset();$('editEventId').value='';
+  if($('eventPageHeading'))$('eventPageHeading').textContent='Create an Event';
+  $('eventFormTitle').textContent='Create an Event';
+  $('eventSubmit').textContent='Save Event';
+  $('cancelEdit').classList.remove('hidden');
+  $('brochurePreview').classList.add('hidden');$('brochurePreview').src='';
+  $('imagePreview').classList.add('hidden');$('imagePreview').src='';
+  if($('eImageFilename'))$('eImageFilename').textContent='';
+  if($('eBrochureFilename'))$('eBrochureFilename').textContent='';
+  $('eventFormError').textContent='';$('eStatus').value='DRAFT';
+}
 function fillEventForm(ev){
   $('editEventId').value=ev.id;$('eName').value=ev.name;$('eCategory').value=ev.category;$('eVenue').value=ev.venue;
   $('eDate').value=ev.dateInput;$('eStart').value=ev.startInput;$('eEnd').value=ev.endInput;$('eMode').value=ev.registrationMode;
   $('eDesc').value=ev.description;$('eDeadline').value=ev.registrationDeadlineInput||'';$('eCapacity').value=ev.maxCapacity??'';$('eStatus').value=ev.status;
-  $('eventFormTitle').textContent='Edit '+ev.name;$('eventSubmit').textContent='Update event';$('cancelEdit').classList.remove('hidden');
+  if($('eventPageHeading'))$('eventPageHeading').textContent='Edit '+ev.name;
+  $('eventFormTitle').textContent='Edit '+ev.name;$('eventSubmit').textContent='Save Event';
+  $('cancelEdit').classList.remove('hidden');$('eventFormError').textContent='';
   if(ev.imageUrl){$('imagePreview').src=ev.imageUrl;$('imagePreview').classList.remove('hidden')}else $('imagePreview').classList.add('hidden');
   if(ev.brochureUrl){$('brochurePreview').src=ev.brochureUrl;$('brochurePreview').classList.remove('hidden')}else $('brochurePreview').classList.add('hidden');
+  if($('eImageFilename'))$('eImageFilename').textContent=ev.imageUrl?'Current image uploaded':'';
+  if($('eBrochureFilename'))$('eBrochureFilename').textContent=ev.brochureName||(ev.brochureUrl?'Current brochure uploaded':'');
 }
-$('newEventBtn').onclick=()=>{$('adminPortal').scrollTo({top:0,behavior:'smooth'});resetEventForm();$('eName').focus()};
-$('cancelEdit').onclick=resetEventForm;
-$('eImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('imagePreview').src=r.result;$('imagePreview').classList.remove('hidden')};r.readAsDataURL(f)});
-$('eBrochure').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('brochurePreview').src=r.result;$('brochurePreview').classList.remove('hidden')};r.readAsDataURL(f)});
+$('newEventBtn').onclick=()=>showAdminEventForm('create');
+$('cancelEdit').onclick=()=>showAdminMainView();
+if($('backToEventsBtn'))$('backToEventsBtn').onclick=()=>showAdminMainView();
+$('eImage').addEventListener('change',e=>{
+  const f=e.target.files[0],fn=$('eImageFilename'),err=$('eventFormError');
+  if(!f){if(fn)fn.textContent='';return}
+  const allowed=['image/jpeg','image/jpg','image/png','image/webp'];
+  if(!allowed.includes(f.type)&&!/\.(jpe?g|png|webp)$/i.test(f.name)){
+    err.textContent='Event image must be JPG, PNG, or WEBP.';e.target.value='';
+    if(fn)fn.textContent='';$('imagePreview').classList.add('hidden');return;
+  }
+  if(f.size>5*1024*1024){
+    err.textContent='Event image must be 5 MB or smaller.';e.target.value='';
+    if(fn)fn.textContent='';$('imagePreview').classList.add('hidden');return;
+  }
+  err.textContent='';
+  if(fn)fn.textContent=f.name+' ('+(f.size/1024).toFixed(1)+' KB)';
+  const r=new FileReader();
+  r.onload=()=>{$('imagePreview').src=r.result;$('imagePreview').classList.remove('hidden')};
+  r.readAsDataURL(f);
+});
+$('eBrochure').addEventListener('change',e=>{
+  const f=e.target.files[0],fn=$('eBrochureFilename'),err=$('eventFormError');
+  if(!f){if(fn)fn.textContent='';return}
+  if(f.size>10*1024*1024){
+    err.textContent='Brochure file must be 10 MB or smaller.';e.target.value='';
+    if(fn)fn.textContent='';$('brochurePreview').classList.add('hidden');return;
+  }
+  err.textContent='';
+  if(fn)fn.textContent=f.name+' ('+(f.size/1024).toFixed(1)+' KB)';
+  if(f.type.startsWith('image/')){
+    const r=new FileReader();
+    r.onload=()=>{$('brochurePreview').src=r.result;$('brochurePreview').classList.remove('hidden')};
+    r.readAsDataURL(f);
+  }else $('brochurePreview').classList.add('hidden');
+});
+let isSavingEvent=false;
 $('eventForm').addEventListener('submit',async e=>{
   e.preventDefault();
+  if(isSavingEvent)return;
   const form=e.currentTarget,err=$('eventFormError'),btn=$('eventSubmit'),id=$('editEventId').value,label=btn.textContent;
   err.textContent='';
-  if(!form.checkValidity()){err.textContent='Complete the event details before saving.';form.reportValidity();return}
+  if(!form.checkValidity()){err.textContent='Complete the required event details before saving.';form.reportValidity();return}
+
+  const eDate=$('eDate').value,eStart=$('eStart').value,eEnd=$('eEnd').value;
+  if(eStart&&eEnd&&eEnd<=eStart){
+    err.textContent='End time must be later than the start time.';
+    $('eEnd').focus();return;
+  }
+
+  const eMode=$('eMode').value,eDeadline=$('eDeadline').value;
+  if(eMode!=='ON_SPOT'&&!eDeadline){
+    err.textContent='Online registration closing date and time is required when website registration is enabled.';
+    $('eDeadline').focus();return;
+  }
+  if(eDeadline&&eDate&&eStart){
+    const startDt=eDate+'T'+eStart;
+    if(eDeadline>startDt){
+      err.textContent='Online registration closing time cannot be later than the event start time.';
+      $('eDeadline').focus();return;
+    }
+  }
+
+  const eCapacity=$('eCapacity').value;
+  if(eCapacity!==''&&(!Number.isInteger(Number(eCapacity))||Number(eCapacity)<1)){
+    err.textContent='Maximum participants must be a positive integer.';
+    $('eCapacity').focus();return;
+  }
+
+  const image=$('eImage').files[0];
+  if(image){
+    const allowed=['image/jpeg','image/jpg','image/png','image/webp'];
+    if(!allowed.includes(image.type)&&!/\.(jpe?g|png|webp)$/i.test(image.name)){
+      err.textContent='Event image must be JPG, PNG, or WEBP.';return;
+    }
+    if(image.size>5*1024*1024){
+      err.textContent='Event image must be 5 MB or smaller.';return;
+    }
+  }
+
   if(!adminAuthed&&!(await restoreSession())){openLogin();return}
+  isSavingEvent=true;btn.disabled=true;btn.textContent='Saving…';
   const fd=new FormData();
   Object.keys(EVENT_FIELD_MAP).forEach(k=>{const el=$(k);if(el)fd.append(EVENT_FIELD_MAP[k],el.value)});
-  const image=$('eImage').files[0];if(image)fd.append('image',image);
+  if(image)fd.append('image',image);
   const brochure=$('eBrochure').files[0];if(brochure)fd.append('brochure',brochure);
-  btn.disabled=true;btn.textContent='Saving…';
   try{
     const d=await api(id?('/api/admin/events/'+encodeURIComponent(id)):'/api/admin/events',{method:id?'PATCH':'POST',form:fd});
     toast(id?'Event updated':'Event saved',d.event.name+' · '+d.event.statusLabel);
-    resetEventForm();await refreshAdmin();await loadEvents();
+    resetEventForm();showAdminMainView();await refreshAdmin();await loadEvents();
   }catch(ex){
     err.textContent=ex.message+(ex.details?(' '+Object.values(ex.details).join(' · ')):'');
-  }finally{btn.disabled=false;btn.textContent=label}
+  }finally{btn.disabled=false;btn.textContent=label;isSavingEvent=false}
 });
 $('adminEventsTable').addEventListener('click',async e=>{
   const b=e.target.closest('button');if(!b)return;
   const id=b.dataset.edit||b.dataset.publish||b.dataset.draft||b.dataset.delete||b.dataset.participants||b.dataset.archive;
   const ev=adminEvents.find(x=>x.id===id);if(!ev)return;
-  if(b.dataset.edit){fillEventForm(ev);$('adminPortal').scrollTo({top:0,behavior:'smooth'});const f=$('eName');f&&f.focus();return}
+  if(b.dataset.edit){showAdminEventForm('edit',ev);const f=$('eName');f&&f.focus();return}
   if(b.dataset.participants){$('adminEventSelect').value=ev.id;adminSelectedEvent=ev.id;await loadParticipants();$('participantsPanel').scrollIntoView({behavior:'smooth',block:'start'});return}
   if(b.dataset.publish||b.dataset.draft){
     b.disabled=true;
