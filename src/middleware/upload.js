@@ -62,9 +62,9 @@ async function persistUpload(file, { category = 'events', allowPdf = false } = {
     throw ApiError.badRequest(`That file is not a valid ${hint} file.`);
   }
 
-  // On serverless environments (e.g. Vercel), local filesystem is read-only or ephemeral.
-  // Persist site hero photos as Base64 data URLs in PostgreSQL.
-  if (process.env.VERCEL && category === 'site') {
+  // On serverless environments (e.g. Vercel), local filesystem is ephemeral and not shared across serverless lambdas.
+  // Persist uploads as Base64 data URLs in PostgreSQL so they are always accessible.
+  if (process.env.VERCEL) {
     const dataUrl = `data:${type.mime};base64,${file.buffer.toString('base64')}`;
     return { url: dataUrl, filename: safeName(type.ext), size: file.buffer.length, mime: type.mime };
   }

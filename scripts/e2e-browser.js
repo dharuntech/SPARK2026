@@ -110,8 +110,11 @@ async function registerForFirstOpenEvent(page, student) {
 
 (async () => {
   fs.mkdirSync(DOWNLOADS, { recursive: true });
+  const chromeExe = process.env.PUPPETEER_EXECUTABLE_PATH ||
+    (fs.existsSync('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe') ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : undefined);
   const browser = await puppeteer.launch({
     headless: 'new',
+    executablePath: chromeExe,
     args: ['--no-sandbox', '--disable-dev-shm-usage', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
     acceptInsecureCerts: true,
   });
@@ -583,6 +586,7 @@ async function registerForFirstOpenEvent(page, student) {
     await page.$eval('#eDate', (el) => { el.value = '2026-10-18'; });
     await page.$eval('#eStart', (el) => { el.value = '11:00'; });
     await page.$eval('#eEnd', (el) => { el.value = '13:00'; });
+    await page.$eval('#eDeadline', (el) => { el.value = '2026-10-18T10:00'; });
     const input = await page.$('#eImage');
     await input.uploadFile(imgPath);
     await page.select('#eStatus', 'PUBLISHED');

@@ -14,6 +14,7 @@ const router = express.Router();
 router.get(
   '/events',
   asyncHandler(async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const search = String(req.query.search || '').slice(0, 80);
     const category = String(req.query.category || 'ALL').toUpperCase();
     const events = await eventsService.listPublicEvents({ search, category });

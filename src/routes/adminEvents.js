@@ -45,7 +45,7 @@ function parseEventPayload(body) {
     registrationMode: data.registrationMode,
     registrationDeadline,
     maxCapacity: data.maxCapacity === '' || data.maxCapacity == null ? null : Number(data.maxCapacity),
-    status: data.status,
+    status: data.status || 'PUBLISHED',
     code: data.code,
   };
 }
@@ -122,7 +122,7 @@ router.post(
         registrationMode: data.registrationMode,
         registrationDeadline: data.registrationDeadline,
         maxCapacity: data.maxCapacity,
-        status: data.status || 'DRAFT',
+        status: data.status || 'PUBLISHED',
         imageUrl: image?.url || null,
         brochureUrl: brochure?.url || null,
         brochureName: brochureFile ? brochureFile.originalname.slice(0, 200) : null,

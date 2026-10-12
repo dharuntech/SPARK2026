@@ -67,7 +67,7 @@ grid.addEventListener('pointerleave',()=>{reset(cur);cur=null});
 document.querySelectorAll('.pager button').forEach(b=>b.addEventListener('click',()=>go(+b.dataset.section)));
 })();
 function eventById(id){return events.find(e=>e.id===id||e.code===id)||null}
-function cardMedia(e){return e.imageUrl?'<div class="card-media"><img loading="lazy" alt="'+esc(e.name)+' poster" src="'+esc(e.imageUrl)+'"></div>':'<div class="card-media fallback"><span>'+esc(e.code)+'</span><b>'+esc(e.categoryLabel)+'</b></div>'}
+function cardMedia(e){return e.imageUrl?'<div class="card-media"><img loading="lazy" alt="'+esc(e.name)+' poster" src="'+esc(e.imageUrl)+'" onerror="this.onerror=null;this.parentElement.className=\'card-media fallback\';this.parentElement.innerHTML=\'<span>\'+esc(e.code)+\'</span><b>\'+esc(e.categoryLabel)+\'</b>\'"></div>':'<div class="card-media fallback"><span>'+esc(e.code)+'</span><b>'+esc(e.categoryLabel)+'</b></div>'}
 function seatLabel(e){return e.maxCapacity!=null?(e.registeredCount+' / '+e.maxCapacity+' registered'):(e.registeredCount+(e.registeredCount===1?' student registered':' students registered'))}
 function renderEvents(){const q=$('eventSearch')?$('eventSearch').value.trim().toLowerCase():'',grid=$('eventGrid');
 const list=events.filter(e=>(activeFilter==='ALL'||e.category===activeFilter)&&(!q||[e.name,e.description,e.venue,e.categoryLabel,e.code].join(' ').toLowerCase().includes(q)));
@@ -82,7 +82,7 @@ if($('eventSearch'))$('eventSearch').addEventListener('input',renderEvents);
 $('eventGrid').addEventListener('click',e=>{const r=e.target.closest('[data-reg]'),d=e.target.closest('[data-info]');
 if(r){if(r.disabled)return;const ev=eventById(r.dataset.reg);if(!ev)return;if(!ev.registrationOpen){showInfo(ev.name,'Registration closed','<div class="notice">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');return}selectEvent(ev);go(2)}
 if(d){const ev=eventById(d.dataset.info);if(!ev)return;
-const img=ev.imageUrl?'<img class="detail-img" src="'+esc(ev.imageUrl)+'" alt="'+esc(ev.name)+' poster">':'';
+const img=ev.imageUrl?'<img class="detail-img" src="'+esc(ev.imageUrl)+'" alt="'+esc(ev.name)+' poster" onerror="this.remove()">':'';
 const body='<div class="success">'+img+'<b>'+esc(ev.venue)+'</b><br>'+esc(ev.dateLabel)+' · '+esc(ev.timeLabel)+'<br><br>'+esc(ev.description)+'<br><br>Registration mode: '+esc(ev.modeLabel)+'<br>'+esc(seatLabel(ev))+(ev.registrationDeadlineLabel?'<br>Online registration closes: '+esc(ev.registrationDeadlineLabel):'')+(ev.brochureUrl?'<br><a class="mini" style="margin-top:8px;display:inline-flex" href="'+esc(ev.brochureUrl)+'" target="_blank" rel="noopener">View brochure</a>':'')+'</div>'+(ev.registrationOpen?'<div class="actions"><button class="cta" id="detailRegister">Register for this event</button></div>':'<div class="notice">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');
 showInfo(ev.name,ev.categoryLabel+' · '+ev.code,body);
 const dr=$('detailRegister');if(dr)dr.onclick=()=>{closeInfo();selectEvent(ev);go(2)}}});
@@ -304,7 +304,7 @@ function resetEventForm(){
   $('imagePreview').classList.add('hidden');$('imagePreview').src='';
   if($('eImageFilename'))$('eImageFilename').textContent='';
   if($('eBrochureFilename'))$('eBrochureFilename').textContent='';
-  $('eventFormError').textContent='';$('eStatus').value='DRAFT';
+  $('eventFormError').textContent='';$('eStatus').value='PUBLISHED';
 }
 function fillEventForm(ev){
   $('editEventId').value=ev.id;$('eName').value=ev.name;$('eCategory').value=ev.category;$('eVenue').value=ev.venue;
