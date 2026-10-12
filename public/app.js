@@ -29,10 +29,13 @@ function downloadBlob(blob,filename){const a=document.createElement('a');a.href=
 async function downloadFile(url,fallbackName){const res=await api(url,{download:true});const cd=res.headers.get('Content-Disposition')||'';const m=/filename="?([^";]+)"?/.exec(cd);const blob=await res.blob();const name=m?m[1]:fallbackName;downloadBlob(blob,name);return name}
 const sections=[0,1,2,3,4,5].map(i=>$('s'+i));
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}function save(){/* PostgreSQL is authoritative — nothing is mirrored in this browser */}function toast(title,msg){const t=$('toast');t.innerHTML='<strong>'+esc(title)+'</strong>'+esc(msg);t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),3600)}
-function go(i){
+function go(i, push = true){
 i=Math.max(0,Math.min(5,i));
 const out=sections[currentSection],inn=sections[i];
 if(i===currentSection&&inn.classList.contains('show'))return;
+if(push && window.history && window.history.pushState){
+  try{history.pushState({section:i},'','#s'+i)}catch(err){}
+}
 const dir=i>currentSection?1:-1,reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
 currentSection=i;document.body.dataset.page=i;window.__sparkFx&&window.__sparkFx(i,dir);
 sections.forEach(s=>{s.getAnimations().forEach(x=>x.cancel());s.classList.remove('leaving');if(s!==inn&&s!==out)s.classList.remove('show')});
@@ -54,12 +57,106 @@ o.onfinish=()=>{out.classList.remove('show','leaving');o.cancel()}
 }
 document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>go(0));document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')go(0)});$('heroEvents')?.addEventListener('click',()=>go(1));$('navReg').onclick=()=>{if(selectedId&&eventById(selectedId)){updateSelected();go(2)}else if(events&&events.length){selectEvent(events[0]);go(2)}else{go(2)}};window.sparkGo=go;
 (function(){
-let sx=0,sy=0,st=0,tracking=false;
-const blocked=t=>!t||!t.closest||t.closest('input,select,textarea,.table-wrap,.overlay.show,.admin.show,.modal,#galleryStage,#circularGalleryRoot,.circular-gallery');
-document.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0){tracking=false;return}if(e.target&&e.target.closest&&e.target.closest('#galleryStage,#circularGalleryRoot,.circular-gallery')){tracking=false;return}tracking=!blocked(e.target)&&!(e.pointerType==='mouse'&&e.target.closest&&e.target.closest('#arena3d'));if(!tracking)return;sx=e.clientX;sy=e.clientY;st=performance.now()});
-document.addEventListener('pointercancel',()=>{tracking=false});
-document.addEventListener('pointerup',e=>{if(e.target&&e.target.closest&&e.target.closest('#galleryStage,#circularGalleryRoot,.circular-gallery')){tracking=false;return}if(!tracking)return;tracking=false;const dx=e.clientX-sx,dy=e.clientY-sy;if(performance.now()-st>900||Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.5)return;if(String(getSelection()||'').length)return;go(currentSection+(dx<0?1:-1))});
-document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('input,select,textarea'))return;if(document.querySelector('.overlay.show,.admin.show'))return;if(e.key==='ArrowRight')go(currentSection+1);else if(e.key==='ArrowLeft')go(currentSection-1)});
+const blocked = t => {
+  if (!t) return false;
+  const el = t.nodeType === 1 ? t : (t.parentElement || null);
+  if (!el || typeof el.closest !== 'function') return false;
+  return Boolean(el.closest('input,select,textarea,.table-wrap,.overlay.show,.admin.show,.modal,#galleryStage,#circularGalleryRoot,.circular-gallery'));
+};
+
+// 1. TOUCH SWIPE (Mobile and touch screens) - blocks browser edge back navigation and transitions sections
+let touchStartX=0,touchStartY=0,touchStartTime=0,touchTracking=false;
+window.addEventListener('touchstart',e=>{
+  if(e.touches.length!==1){touchTracking=false;return}
+  const t=e.touches[0];
+  if(blocked(t.target)){touchTracking=false;return}
+  touchStartX=t.clientX;touchStartY=t.clientY;touchStartTime=performance.now();touchTracking=true;
+},{passive:true});
+
+window.addEventListener('touchmove',e=>{
+  if(!touchTracking||e.touches.length!==1)return;
+  const t=e.touches[0];
+  const dx=t.clientX-touchStartX,dy=t.clientY-touchStartY;
+  // If moving horizontally, prevent mobile browser from triggering native history back gesture that exits the site
+  if(Math.abs(dx)>Math.abs(dy)*1.15&&Math.abs(dx)>8){
+    if(e.cancelable)e.preventDefault();
+  }
+},{passive:false});
+
+window.addEventListener('touchend',e=>{
+  if(!touchTracking)return;
+  touchTracking=false;
+  const t=e.changedTouches[0];
+  if(!t)return;
+  const dx=t.clientX-touchStartX,dy=t.clientY-touchStartY;
+  const dt=performance.now()-touchStartTime;
+  if(dt<800&&Math.abs(dx)>=40&&Math.abs(dx)>Math.abs(dy)*1.2){
+    go(currentSection+(dx<0?1:-1));
+  }
+},{passive:true});
+
+window.addEventListener('touchcancel',()=>{touchTracking=false},{passive:true});
+
+// 2. MOUSE DRAG SWIPE (Desktop mouse pointer)
+let ptrStartX=0,ptrStartY=0,ptrStartTime=0,ptrTracking=false;
+document.addEventListener('pointerdown',e=>{
+  if(e.pointerType!=='mouse'||e.button!==0)return;
+  if(blocked(e.target)||(e.target.closest&&e.target.closest('#arena3d')))return;
+  ptrStartX=e.clientX;ptrStartY=e.clientY;ptrStartTime=performance.now();ptrTracking=true;
+});
+document.addEventListener('pointerup',e=>{
+  if(!ptrTracking||e.pointerType!=='mouse')return;
+  ptrTracking=false;
+  const dx=e.clientX-ptrStartX,dy=e.clientY-ptrStartY;
+  const dt=performance.now()-ptrStartTime;
+  if(dt<800&&Math.abs(dx)>=50&&Math.abs(dx)>Math.abs(dy)*1.4){
+    if(!String(window.getSelection()||'').length)go(currentSection+(dx<0?1:-1));
+  }
+});
+
+// 3. TRACKPAD TWO-FINGER HORIZONTAL SWIPE (PC and laptops)
+let wheelLock=false,wheelAccX=0,wheelResetTimer=null;
+window.addEventListener('wheel',e=>{
+  if(blocked(e.target))return;
+  if(Math.abs(e.deltaX)>Math.abs(e.deltaY)*1.15&&Math.abs(e.deltaX)>6){
+    // Stop the PC browser from executing native "Swipe to go back/forward in history" which exits the website
+    if(e.cancelable)e.preventDefault();
+    if(wheelLock)return;
+    wheelAccX+=e.deltaX;
+    clearTimeout(wheelResetTimer);
+    wheelResetTimer=setTimeout(()=>{wheelAccX=0},280);
+    if(Math.abs(wheelAccX)>=40){
+      wheelLock=true;
+      const dir=wheelAccX>0?1:-1;
+      wheelAccX=0;
+      go(currentSection+dir);
+      setTimeout(()=>{wheelLock=false},600);
+    }
+  }
+},{passive:false});
+
+// 4. KEYBOARD ARROWS
+document.addEventListener('keydown',e=>{
+  if(e.target.closest&&e.target.closest('input,select,textarea'))return;
+  if(document.querySelector('.overlay.show,.admin.show'))return;
+  if(e.key==='ArrowRight')go(currentSection+1);
+  else if(e.key==='ArrowLeft')go(currentSection-1);
+});
+
+// 5. BROWSER HISTORY INTEGRATION (Back button navigates previous section without leaving site)
+window.addEventListener('popstate',e=>{
+  if(e.state&&typeof e.state.section==='number'){
+    go(e.state.section,false);
+  }else if(location.hash&&location.hash.startsWith('#s')){
+    const s=parseInt(location.hash.slice(2),10);
+    if(!isNaN(s))go(s,false);
+  }
+});
+try{
+  const initSec=location.hash&&location.hash.startsWith('#s')?parseInt(location.hash.slice(2),10):0;
+  history.replaceState({section:isNaN(initSec)?0:initSec},'',location.hash||'#s0');
+}catch(err){}
+
 /* subtle 3D tilt on event cards (mouse only) */
 const grid=$('eventGrid');let cur=null;const reset=c=>{if(!c)return;c.style.setProperty('--rx','0deg');c.style.setProperty('--ry','0deg');c.classList.remove('tilting')};
 grid.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||matchMedia('(prefers-reduced-motion:reduce)').matches)return;const c=e.target.closest('.card');if(c!==cur){reset(cur);cur=c}if(!c)return;const r=c.getBoundingClientRect(),px=(e.clientX-r.left)/r.width,py=(e.clientY-r.top)/r.height;c.style.setProperty('--ry',((px-.5)*9).toFixed(2)+'deg');c.style.setProperty('--rx',((.5-py)*7).toFixed(2)+'deg');c.style.setProperty('--mx',(px*100)+'%');c.style.setProperty('--my',(py*100)+'%');c.classList.add('tilting')});
