@@ -23,7 +23,7 @@ function buildSession(app) {
     },
   };
 
-  if (!env.isTest) {
+  if (!env.isTest && env.databaseUrl) {
     // Sessions live in PostgreSQL alongside everything else (table auto-created).
     const PgSession = require('connect-pg-simple')(session);
     options.store = new PgSession({
