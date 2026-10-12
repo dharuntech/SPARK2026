@@ -11,8 +11,16 @@ const time = require('../lib/time');
 const eventsService = require('../services/events');
 const { countsForEvents } = require('../services/events');
 
+const { adminMutationLimiter } = require('../middleware/rateLimit');
+
 const router = express.Router();
 router.use(requireAdmin);
+router.use((req, res, next) => {
+  if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) {
+    return adminMutationLimiter(req, res, next);
+  }
+  return next();
+});
 
 const EVENT_FILES = uploadFields([{ name: 'image', maxCount: 1 }, { name: 'brochure', maxCount: 1 }]);
 

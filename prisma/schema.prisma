@@ -124,6 +124,10 @@ model Registration {
   @@unique([studentId, eventId], name: "one_registration_per_student_per_event")
   @@index([eventId])
   @@index([studentId])
+  @@index([createdAt(sort: Desc)])
+  @@index([eventId, createdAt(sort: Desc)])
+  @@index([eventId, status])
+  @@index([studentId, status])
   @@index([attendanceStatus])
   @@index([eventId, attendanceStatus])
   @@map("registrations")
@@ -170,3 +174,13 @@ model SiteSetting {
 
   @@map("site_settings")
 }
+
+model RateLimit {
+  key     String   @id @db.VarChar(255)
+  count   Int      @default(1)
+  resetAt DateTime @map("reset_at") @db.Timestamptz(3)
+
+  @@index([resetAt])
+  @@map("rate_limits")
+}
+

@@ -93,7 +93,7 @@ test('students cannot read other students’ registrations through the API', asy
 });
 
 test('login rate limiting engages when enabled', async () => {
-  const limiter = build({ windowMs: 60_000, max: 3, message: 'too many', alwaysOn: true });
+  const limiter = build({ windowMs: 60_000, max: 3, message: 'too many', alwaysOn: true, prefix: `rl:testlogin:${Date.now()}:` });
   const app = require('express')();
   app.set('trust proxy', 1);
   app.post('/login', limiter, (_req, res) => res.json({ ok: true }));
@@ -136,3 +136,54 @@ test('health endpoint responds without authentication and reveals nothing sensit
   assert.equal(res.body.ok, true);
   assert.deepEqual(Object.keys(res.body).sort(), ['ok', 'service', 'time', 'timezone']);
 });
+
+test('postgres distributed rate limiter persists atomic counters and sets Retry-After on 429', async () => {
+  const { PostgresStore, build } = require('../src/middleware/rateLimit');
+  const store = new PostgresStore({ prefix: 'rl:test:' });
+  const key = `ip-test-${Date.now()}`;
+  const hit1 = await store.increment(key);
+  assert.equal(hit1.totalHits, 1);
+  const hit2 = await store.increment(key);
+  assert.equal(hit2.totalHits, 2);
+  await store.resetKey(key);
+
+  const limiter = build({ windowMs: 30_000, max: 2, message: 'Too many requests.', alwaysOn: true, prefix: 'rl:testsuite:' });
+  const app = require('express')();
+  app.set('trust proxy', 1);
+  app.get('/test-rl', limiter, (_req, res) => res.json({ ok: true }));
+  const agent = request(app);
+
+  const r1 = await agent.get('/test-rl');
+  const r2 = await agent.get('/test-rl');
+  const r3 = await agent.get('/test-rl');
+  assert.equal(r1.status, 200);
+  assert.equal(r2.status, 200);
+  assert.equal(r3.status, 429);
+  assert.equal(r3.body.ok, false);
+  assert.equal(r3.body.error.code, 'RATE_LIMITED');
+  assert.ok(r3.headers['retry-after'], 'expected Retry-After header on 429');
+});
+
+test('high-concurrency registration transactions strictly enforce event capacity without overbooking', async () => {
+  // Create an event with maximum capacity = 3
+  const event = await makeEvent({ maxCapacity: 3 });
+  const students = Array.from({ length: 8 }, () => studentFixture());
+
+  // Fire 8 concurrent registration requests simultaneously
+  const results = await Promise.all(
+    students.map((student) =>
+      ctx.api.post('/api/registrations').send({ eventId: event.id, ...student })
+    )
+  );
+
+  const successes = results.filter((r) => r.status === 201);
+  const fullRejections = results.filter((r) => r.status === 409 && r.body.error?.code === 'EVENT_FULL');
+
+  assert.equal(successes.length, 3, `Expected exactly 3 registrations to succeed, got ${successes.length}`);
+  assert.equal(fullRejections.length, 5, `Expected 5 requests to be rejected with EVENT_FULL, got ${fullRejections.length}`);
+
+  // Confirm database row count matches capacity
+  const confirmedCount = await prisma.registration.count({ where: { eventId: event.id, status: 'CONFIRMED' } });
+  assert.equal(confirmedCount, 3, 'Database count exceeded event capacity');
+});
+

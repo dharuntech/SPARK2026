@@ -62,8 +62,10 @@ function createApp() {
           frameAncestors: env.isProd ? ["'self'"] : ['*'],
         },
       },
-      // The live-preview iframe embeds this app; production keeps a strict policy.
-      frameguard: false,
+      // The live-preview iframe embeds this app in dev; production keeps a strict same-origin policy.
+      frameguard: env.isProd ? { action: 'sameorigin' } : false,
+      hsts: env.isProd ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+      xContentTypeOptions: true,
       crossOriginResourcePolicy: { policy: 'same-site' },
       referrerPolicy: { policy: 'same-origin' },
     })

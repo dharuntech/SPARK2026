@@ -92,18 +92,29 @@ async function createRegistration({ event, student: studentInput, source, adminI
   let created;
   try {
     created = await prisma.$transaction(async (tx) => {
-      // Serialise concurrent registrations for the same event (capacity + duplicate safety).
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${event.id}))`;
+      // 1. Pessimistic ANSI SQL row-level lock on the target event row: guarantees strict serialization
+      // for concurrent registrations targeting this event, immune to hash collisions and transaction poolers.
+      const lockedEvents = await tx.$queryRaw`
+        SELECT id, max_capacity, status, registration_mode
+        FROM events
+        WHERE id = ${event.id}
+        FOR UPDATE
+      `;
+      const lockedEvent = lockedEvents && lockedEvents[0];
+      const maxCapacity = lockedEvent ? lockedEvent.max_capacity : event.maxCapacity;
 
-      if (event.maxCapacity != null) {
+      // 2. Strict capacity check evaluated while holding the exclusive row lock.
+      if (maxCapacity != null) {
         const confirmed = await tx.registration.count({ where: { eventId: event.id, status: 'CONFIRMED' } });
-        if (confirmed >= event.maxCapacity) {
+        if (confirmed >= maxCapacity) {
           throw ApiError.conflict('EVENT_FULL', require('./events').closedMessages.FULL);
         }
       }
 
+      // 3. Resolve student record (normalized, unique register number)
       const student = await resolveStudent(tx, studentInput);
 
+      // 4. Duplicate check inside transaction
       const existing = await tx.registration.findUnique({
         where: { one_registration_per_student_per_event: { studentId: student.id, eventId: event.id } },
       });
@@ -115,6 +126,7 @@ async function createRegistration({ event, student: studentInput, source, adminI
         });
       }
 
+      // 5. Generate unique registration pass with collision retry and constraint safety
       let registration = null;
       for (let attempt = 0; attempt < 5 && !registration; attempt += 1) {
         try {
@@ -131,12 +143,25 @@ async function createRegistration({ event, student: studentInput, source, adminI
           });
         } catch (err) {
           if (err.code === 'P2002' && String(err.meta?.target || '').includes('registration_id')) continue; // retry id collision
+          if (err.code === 'P2002') {
+            // Concurrent race on studentId + eventId unique constraint
+            const duplicate = await tx.registration.findUnique({
+              where: { one_registration_per_student_per_event: { studentId: student.id, eventId: event.id } },
+            });
+            if (duplicate) {
+              throw ApiError.conflict('DUPLICATE_REGISTRATION', DUPLICATE_MESSAGE, {
+                registrationId: duplicate.registrationId,
+                eventId: event.id,
+                attendanceStatus: duplicate.attendanceStatus,
+              });
+            }
+          }
           throw err;
         }
       }
       if (!registration) throw new ApiError(500, 'ID_GENERATION_FAILED', 'Could not allocate a registration ID. Please retry.');
       return registration;
-    }, { timeout: 15000 });
+    }, { timeout: 15000, isolationLevel: 'ReadCommitted' });
   } catch (err) {
     throw translatePrismaError(err);
   }

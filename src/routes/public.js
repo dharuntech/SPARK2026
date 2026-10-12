@@ -3,16 +3,29 @@ const express = require('express');
 const prisma = require('../lib/prisma');
 const { asyncHandler, ApiError } = require('../lib/http');
 const { validate } = require('../middleware/validate');
-const { registerLimiter, lookupLimiter } = require('../middleware/rateLimit');
+const {
+  eventsListLimiter,
+  searchLimiter,
+  eventDetailLimiter,
+  registerLimiter,
+  lookupLimiter,
+} = require('../middleware/rateLimit');
 const { registerSchema, passLookupSchema } = require('../lib/validate-schemas');
 const eventsService = require('../services/events');
 const registrationsService = require('../services/registrations');
 
 const router = express.Router();
 
+/** Conditional middleware: applies searchLimiter if search query is present, else eventsListLimiter */
+const eventsReadLimiter = (req, res, next) => {
+  if (req.query.search) return searchLimiter(req, res, next);
+  return eventsListLimiter(req, res, next);
+};
+
 /** GET /api/events — published events only, with live counts and availability. */
 router.get(
   '/events',
+  eventsReadLimiter,
   asyncHandler(async (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const search = String(req.query.search || '').slice(0, 80);
@@ -25,6 +38,7 @@ router.get(
 /** GET /api/events/:idOrCode — published event detail. */
 router.get(
   '/events/:idOrCode',
+  eventDetailLimiter,
   asyncHandler(async (req, res) => {
     const event = await eventsService.publicEventDetail(req.params.idOrCode);
     res.json({ ok: true, event });

@@ -8,6 +8,7 @@ const { audit } = require('../lib/audit');
 const eventsService = require('../services/events');
 const registrationsService = require('../services/registrations');
 const excel = require('../services/excel');
+const { adminMutationLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
 router.use(requireAdmin);
@@ -52,6 +53,7 @@ router.get(
 /** POST /api/admin/registrations — on-spot registration (creates the same records as a website signup). */
 router.post(
   '/registrations',
+  adminMutationLimiter,
   csrfProtection,
   requireRole('SUPERADMIN', 'ADMIN'),
   validate(onSpotSchema),
