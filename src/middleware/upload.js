@@ -61,12 +61,28 @@ async function persistUpload(file, { category = 'events', allowPdf = false } = {
     const hint = allowPdf ? 'JPG, PNG, WEBP or PDF' : 'JPG, PNG or WEBP';
     throw ApiError.badRequest(`That file is not a valid ${hint} file.`);
   }
+
+  // On serverless environments (e.g. Vercel), local filesystem is read-only or ephemeral.
+  // Persist site hero photos as Base64 data URLs in PostgreSQL.
+  if (process.env.VERCEL && category === 'site') {
+    const dataUrl = `data:${type.mime};base64,${file.buffer.toString('base64')}`;
+    return { url: dataUrl, filename: safeName(type.ext), size: file.buffer.length, mime: type.mime };
+  }
+
   const dir = path.join(env.uploadDir, category);
-  await fsp.mkdir(dir, { recursive: true });
-  const filename = safeName(type.ext);
-  const dest = path.join(dir, filename);
-  await fsp.writeFile(dest, file.buffer, { mode: 0o644 });
-  return { url: `/uploads/${category}/${filename}`, filename, size: file.buffer.length, mime: type.mime };
+  try {
+    await fsp.mkdir(dir, { recursive: true });
+    const filename = safeName(type.ext);
+    const dest = path.join(dir, filename);
+    await fsp.writeFile(dest, file.buffer, { mode: 0o644 });
+    return { url: `/uploads/${category}/${filename}`, filename, size: file.buffer.length, mime: type.mime };
+  } catch (err) {
+    if (err.code === 'EROFS' || err.code === 'EACCES') {
+      const dataUrl = `data:${type.mime};base64,${file.buffer.toString('base64')}`;
+      return { url: dataUrl, filename: safeName(type.ext), size: file.buffer.length, mime: type.mime };
+    }
+    throw err;
+  }
 }
 
 /** Removes a previously stored upload (used when replacing/clearing an image). */
@@ -79,8 +95,11 @@ async function removeUpload(url) {
 }
 
 function ensureUploadDirs() {
+  if (process.env.VERCEL) return;
   for (const sub of ['events', 'brochures', 'site', 'onspot']) {
-    fs.mkdirSync(path.join(env.uploadDir, sub), { recursive: true });
+    try {
+      fs.mkdirSync(path.join(env.uploadDir, sub), { recursive: true });
+    } catch (_) {}
   }
 }
 

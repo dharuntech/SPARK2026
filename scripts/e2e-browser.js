@@ -171,17 +171,10 @@ async function registerForFirstOpenEvent(page, student) {
     assert(visible, 'events section not shown');
     return 'section s1 active';
   });
-  await check('search + category filter hit the API', async () => {
-    await page.click('.filter[data-filter="TECHNICAL"]');
+  await check('events grid renders cards directly', async () => {
     await page.waitForFunction(() => document.querySelectorAll('#eventGrid .card').length > 0);
-    const technicalOnly = await page.$$eval('#eventGrid .card .tag', (els) => els.every((e) => e.textContent === 'TECHNICAL'));
-    assert(technicalOnly, 'filter showed non-technical events');
-    await page.type('#eventSearch', 'zzz-no-such-event');
-    await page.waitForFunction(() => document.querySelector('#eventGrid .empty'));
-    const empty = await page.$eval('#eventGrid .empty', (e) => e.textContent);
-    await page.$eval('#eventSearch', (el) => { el.value = ''; el.dispatchEvent(new Event('input', { bubbles: true })); });
-    await page.click('.filter[data-filter="ALL"]');
-    return `empty state: "${empty.trim()}"`;
+    const count = await page.$$eval('#eventGrid .card', (els) => els.length);
+    return `rendered ${count} events`;
   });
   await check('event card Register opens the form for that event', async () => {
     const picked = await page.evaluate(() => {

@@ -69,7 +69,7 @@ document.querySelectorAll('.pager button').forEach(b=>b.addEventListener('click'
 function eventById(id){return events.find(e=>e.id===id||e.code===id)||null}
 function cardMedia(e){return e.imageUrl?'<div class="card-media"><img loading="lazy" alt="'+esc(e.name)+' poster" src="'+esc(e.imageUrl)+'"></div>':'<div class="card-media fallback"><span>'+esc(e.code)+'</span><b>'+esc(e.categoryLabel)+'</b></div>'}
 function seatLabel(e){return e.maxCapacity!=null?(e.registeredCount+' / '+e.maxCapacity+' registered'):(e.registeredCount+(e.registeredCount===1?' student registered':' students registered'))}
-function renderEvents(){const q=$('eventSearch').value.trim().toLowerCase(),grid=$('eventGrid');
+function renderEvents(){const q=$('eventSearch')?$('eventSearch').value.trim().toLowerCase():'',grid=$('eventGrid');
 const list=events.filter(e=>(activeFilter==='ALL'||e.category===activeFilter)&&(!q||[e.name,e.description,e.venue,e.categoryLabel,e.code].join(' ').toLowerCase().includes(q)));
 grid.innerHTML=list.length?list.map(e=>{const open=e.registrationOpen;const statusText=open?'OPEN':(e.closedReason==='FULL'?'FULL':e.closedReason==='ON_SPOT_ONLY'?'ON-SPOT':e.closedReason==='CANCELLED'?'CANCELLED':e.closedReason==='COMPLETED'?'COMPLETED':'CLOSED');
 return '<article class="card" data-event="'+esc(e.id)+'">'+cardMedia(e)+'<div class="meta"><span>'+esc(e.code)+'</span><span class="tag">'+esc(e.categoryLabel)+'</span></div><h3>'+esc(e.name)+'</h3><p>'+esc(e.description)+'</p><div class="kv"><div>VENUE<b>'+esc(e.venue)+'</b></div><div>TIME<b>'+esc(e.dateLabel)+' · '+esc(e.timeLabel)+'</b></div><div>MODE<b>'+esc(e.modeLabel)+'</b></div><div>STATUS<b class="'+(open?'st-open':'st-closed')+'">'+statusText+'</b></div></div><div class="card-seats">'+esc(seatLabel(e))+'</div><div class="actions"><button class="mini primary" data-reg="'+esc(e.id)+'"'+(open?'':' disabled title="'+esc(e.closedMessage||'Registration closed')+'"')+'>'+(open?'Register':'Registration closed')+'</button><button class="mini" data-info="'+esc(e.id)+'">Details</button></div></article>'}).join(''):'<div class="empty">'+(loadState==='loading'?'Loading events from the server…':loadState==='error'?'Events could not be loaded from the server. Please refresh the page to try again.':'No published events match your search.')+'</div>';
@@ -78,7 +78,7 @@ if($('countTechnical'))$('countTechnical').textContent=String(events.filter(e=>e
 if($('countRegs'))$('countRegs').textContent=String(events.reduce((a,e)=>a+(e.registeredCount||0),0)).padStart(2,'0')}
 async function loadEvents(){loadState='loading';renderEvents();try{const d=await api('/api/events');events=d.events||[];loadState='ready'}catch(err){loadState='error';events=[];toast('Events unavailable',err.message)}renderEvents();if(selectedId&&!eventById(selectedId))selectedId='';if(!selectedId&&events.length)selectedId=events[0].id;updateSelected()}
 document.querySelectorAll('.filter[data-filter]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.filter[data-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');activeFilter=b.dataset.filter;renderEvents()}));
-$('eventSearch').addEventListener('input',renderEvents);
+if($('eventSearch'))$('eventSearch').addEventListener('input',renderEvents);
 $('eventGrid').addEventListener('click',e=>{const r=e.target.closest('[data-reg]'),d=e.target.closest('[data-info]');
 if(r){if(r.disabled)return;const ev=eventById(r.dataset.reg);if(!ev)return;if(!ev.registrationOpen){showInfo(ev.name,'Registration closed','<div class="notice">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');return}selectEvent(ev);go(2)}
 if(d){const ev=eventById(d.dataset.info);if(!ev)return;
@@ -441,6 +441,7 @@ $('scanEventSelect').addEventListener('change',()=>{scanEventId=$('scanEventSele
 /* ── home page photo (persistent upload, not base64 in the browser) ── */
 $('heroFile').addEventListener('change',async e=>{
   const f=e.target.files[0];if(!f)return;
+  if(f.size>4.5*1024*1024){$('heroMsg').textContent='Please select an image smaller than 4.5 MB.';return}
   if(!adminAuthed&&!(await restoreSession())){openLogin();return}
   $('heroMsg').textContent='Uploading photo…';
   const fd=new FormData();fd.append('image',f);
@@ -454,11 +455,14 @@ $('heroFile').addEventListener('change',async e=>{
 });
 $('heroReset').addEventListener('click',async()=>{
   if(!adminAuthed&&!(await restoreSession())){openLogin();return}
+  $('heroMsg').textContent='Removing photo…';
   try{
     await api('/api/admin/settings/home-hero',{method:'DELETE'});
     server.heroImage=null;
     if(window.__sparkHero)window.__sparkHero('');
+    $('heroFile').value='';
     $('heroMsg').textContent='Home page photo removed — the built-in hero styling is back.';
+    toast('Photo removed','Hero background reset to default.');
   }catch(ex){$('heroMsg').textContent=ex.message}
 });
 /* ═════════════════════════════ BOOT ═════════════════════════════ */

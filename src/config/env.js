@@ -23,7 +23,7 @@ const env = {
   sessionSecret: process.env.SESSION_SECRET || 'spark26-default-fallback-session-secret-key-prod-minimum-32',
   sessionTtlHours: Number(process.env.SESSION_TTL_HOURS || 12),
   cookieSecure: String(process.env.COOKIE_SECURE || '').toLowerCase() === 'true' || isProd,
-  uploadDir: path.resolve(process.cwd(), process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/uploads' : 'var/uploads')),
+  uploadDir: path.resolve(process.cwd(), process.env.VERCEL ? '/tmp/uploads' : (process.env.UPLOAD_DIR || 'var/uploads')),
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB || 5) * 1024 * 1024,
   timezone: 'Asia/Kolkata',
   rateLimits: {
