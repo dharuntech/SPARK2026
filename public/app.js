@@ -55,7 +55,7 @@ inn.animate([{opacity:0,transform:start},{opacity:1,transform:idt}],{duration:76
 const o=out.animate([{opacity:1,transform:idt},{opacity:0,transform:exit}],{duration:440,easing:'cubic-bezier(.5,0,.75,.4)',fill:'forwards'});
 o.onfinish=()=>{out.classList.remove('show','leaving');o.cancel()}
 }
-document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>go(0));document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')go(0)});$('heroEvents')?.addEventListener('click',()=>go(1));$('navReg').onclick=()=>{if(selectedId&&eventById(selectedId)){updateSelected();go(2)}else if(events&&events.length){selectEvent(events[0]);go(2)}else{go(2)}};window.sparkGo=go;
+document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>{if(currentSection===0){window.location.reload()}else{go(0)}});document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){if(currentSection===0)window.location.reload();else go(0)}});$('heroEvents')?.addEventListener('click',()=>go(1));$('navReg').onclick=()=>{if(selectedId&&eventById(selectedId)){updateSelected();go(2)}else if(events&&events.length){selectEvent(events[0]);go(2)}else{go(2)}};window.sparkGo=go;
 (function(){
 const blocked = t => {
   if (!t) return false;
@@ -64,20 +64,51 @@ const blocked = t => {
   return Boolean(el.closest('input,select,textarea,.table-wrap,.overlay.show,.admin.show,.modal,#galleryStage,#circularGalleryRoot,.circular-gallery'));
 };
 
-// 1. TOUCH SWIPE (Mobile and touch screens) - blocks browser edge back navigation and transitions sections
-let touchStartX=0,touchStartY=0,touchStartTime=0,touchTracking=false;
+// Pull-to-refresh indicator helper
+let pullIndicator = null;
+function getPullIndicator(){
+  if(!pullIndicator){
+    pullIndicator = document.createElement('div');
+    pullIndicator.className = 'pull-refresh-indicator';
+    pullIndicator.innerHTML = '<span class="pull-icon">⟳</span><span class="pull-text">Pull down to refresh</span>';
+    document.body.appendChild(pullIndicator);
+  }
+  return pullIndicator;
+}
+
+// 1. TOUCH GESTURES (Horizontal section navigation + Mobile pull-down to refresh)
+let touchStartX=0,touchStartY=0,touchStartTime=0,touchTracking=false,touchAtTop=false;
 window.addEventListener('touchstart',e=>{
   if(e.touches.length!==1){touchTracking=false;return}
   const t=e.touches[0];
   if(blocked(t.target)){touchTracking=false;return}
   touchStartX=t.clientX;touchStartY=t.clientY;touchStartTime=performance.now();touchTracking=true;
+  const curEl=sections[currentSection];
+  const atTop=(window.scrollY<=4)&&(!curEl||curEl.scrollTop<=4);
+  touchAtTop=atTop&&touchStartY<200;
 },{passive:true});
 
 window.addEventListener('touchmove',e=>{
   if(!touchTracking||e.touches.length!==1)return;
   const t=e.touches[0];
   const dx=t.clientX-touchStartX,dy=t.clientY-touchStartY;
-  // If moving horizontally, prevent mobile browser from triggering native history back gesture that exits the site
+
+  // 1A. Pull down to refresh gesture
+  if(touchAtTop&&dy>20&&dy>Math.abs(dx)*1.3){
+    const ind=getPullIndicator();
+    ind.classList.add('visible');
+    if(dy>=75){
+      ind.classList.add('ready');
+      ind.querySelector('.pull-text').textContent='Release to refresh';
+    }else{
+      ind.classList.remove('ready');
+      ind.querySelector('.pull-text').textContent='Pull down to refresh';
+    }
+    ind.style.transform=`translate(-50%, ${Math.min(dy - 65, 20)}px)`;
+    return;
+  }
+
+  // 1B. Horizontal swipe between sections: block mobile browser edge exit gesture
   if(Math.abs(dx)>Math.abs(dy)*1.15&&Math.abs(dx)>8){
     if(e.cancelable)e.preventDefault();
   }
@@ -87,15 +118,39 @@ window.addEventListener('touchend',e=>{
   if(!touchTracking)return;
   touchTracking=false;
   const t=e.changedTouches[0];
-  if(!t)return;
-  const dx=t.clientX-touchStartX,dy=t.clientY-touchStartY;
+  const dx=t?t.clientX-touchStartX:0;
+  const dy=t?t.clientY-touchStartY:0;
   const dt=performance.now()-touchStartTime;
+
+  // Execute refresh if pulled down past threshold
+  if(touchAtTop&&dy>=75){
+    touchAtTop=false;
+    const ind=getPullIndicator();
+    ind.classList.add('spinning','ready','visible');
+    ind.querySelector('.pull-text').textContent='Refreshing...';
+    setTimeout(()=>{window.location.reload()},150);
+    return;
+  }
+  touchAtTop=false;
+  if(pullIndicator){
+    pullIndicator.classList.remove('visible','ready');
+    pullIndicator.style.transform='';
+  }
+
+  // Execute horizontal section transition
   if(dt<800&&Math.abs(dx)>=40&&Math.abs(dx)>Math.abs(dy)*1.2){
     go(currentSection+(dx<0?1:-1));
   }
 },{passive:true});
 
-window.addEventListener('touchcancel',()=>{touchTracking=false},{passive:true});
+window.addEventListener('touchcancel',()=>{
+  touchTracking=false;
+  touchAtTop=false;
+  if(pullIndicator){
+    pullIndicator.classList.remove('visible','ready');
+    pullIndicator.style.transform='';
+  }
+},{passive:true});
 
 // 2. MOUSE DRAG SWIPE (Desktop mouse pointer)
 let ptrStartX=0,ptrStartY=0,ptrStartTime=0,ptrTracking=false;
