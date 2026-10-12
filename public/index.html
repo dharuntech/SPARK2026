@@ -770,6 +770,21 @@ nav#nav .nav-cta,.hero-cta,.cta,.card .actions .mini.primary,.mini.primary{backg
 .hero-stage .hero3d{position:absolute;inset:0;height:100svh!important;max-height:100svh!important;z-index:1}
 .hero-stage .hero-bg{position:absolute;inset:0;z-index:0}
 
+/* ── PC-only Hero layout: Ensures buttons and terminal never touch marquee ── */
+@media(min-width:900px){
+  .hero-stage{min-height:max(100svh,720px)!important;height:max(100svh,720px)!important;max-height:none!important}
+  .hero-stage .hero3d{min-height:max(100svh,720px)!important;height:max(100svh,720px)!important;max-height:none!important}
+  #s0 .hero-inner{padding:105px max(5vw,24px) 115px max(6vw,28px)!important}
+  #s0 h1{font-size:clamp(2.7rem,5.4vw,4.6rem)!important;line-height:.95!important}
+  #s0 .lead2{margin-top:14px!important;max-width:480px!important}
+  #s0 .term{margin-top:14px!important;min-height:38px!important;padding:8px 14px!important}
+  #s0 .hero-actions{margin-top:16px!important;gap:12px!important}
+  #s0 .hero-actions .hero-cta,#s0 .ghost-btn{padding:13px 22px!important;font-size:13px!important}
+  .marquee{height:86px!important;bottom:2px!important}
+  .mq{height:38px!important}
+  .mq.a{bottom:38px!important}
+}
+
 /* ── Spark'26 Home Showcase Gallery ── */
 #s0.home{overflow-y:auto!important;overflow-x:hidden!important}
 .home-showcase{position:relative;z-index:5;width:100%;max-width:1240px;margin:0 auto;padding:40px max(4vw,20px) 110px;box-sizing:border-box}
