@@ -800,7 +800,15 @@ const CircularGallery = ({
         const s = Math.sin(-card.angle);
         const lx = c * dx - s * dy;
         const ly = s * dx + c * dy;
-        if (Math.abs(lx) <= card.w / 2 && Math.abs(ly) <= card.h / 2) return card;
+        if (Math.abs(lx) <= card.w / 2 && Math.abs(ly) <= card.h / 2) {
+          card.hitLocal = {
+            lx,
+            ly,
+            normX: lx / (card.w || 1),
+            normY: ly / (card.h || 1)
+          };
+          return card;
+        }
       }
       return null;
     };
@@ -889,7 +897,8 @@ const CircularGallery = ({
         if (state.open > 0.5) close();
         return;
       }
-      s.onItemClick?.(card.item, card.index);
+      const handled = s.onItemClick?.(card.item, card.index, card.hitLocal);
+      if (handled === false || handled === 'stop') return;
       if (!s.openOnClick) {
         setSlot(card.slot);
         return;

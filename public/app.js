@@ -52,7 +52,7 @@ inn.animate([{opacity:0,transform:start},{opacity:1,transform:idt}],{duration:76
 const o=out.animate([{opacity:1,transform:idt},{opacity:0,transform:exit}],{duration:440,easing:'cubic-bezier(.5,0,.75,.4)',fill:'forwards'});
 o.onfinish=()=>{out.classList.remove('show','leaving');o.cancel()}
 }
-document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>go(0));document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')go(0)});$('heroEvents')?.addEventListener('click',()=>go(1));$('navReg').onclick=()=>go(1);window.sparkGo=go;
+document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>go(0));document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')go(0)});$('heroEvents')?.addEventListener('click',()=>go(1));$('navReg').onclick=()=>{if(selectedId&&eventById(selectedId)){updateSelected();go(2)}else if(events&&events.length){selectEvent(events[0]);go(2)}else{go(2)}};window.sparkGo=go;
 (function(){
 let sx=0,sy=0,st=0,tracking=false;
 const blocked=t=>!t||!t.closest||t.closest('input,select,textarea,.table-wrap,.overlay.show,.admin.show,.modal,#galleryStage,#circularGalleryRoot,.circular-gallery');
@@ -390,11 +390,23 @@ function updateCircularGallery(){
 
   window.mountSparkCircularGallery(root, {
     items: galleryItems,
-    onItemClick: (item, index) => {
+    onItemClick: (item, index, hitLocal) => {
       const ev = eventById(item.id || item.text) || listToDisplay[index] || events[index];
-      if(ev){
-        openEventDetails(ev);
+      if (!ev) return;
+      // In card texture canvas, bottom button row is at normY <= -0.12
+      // Register button is situated on left half (normX <= 0.06)
+      const isRegisterClick = hitLocal && hitLocal.normY <= -0.12 && hitLocal.normX <= 0.06;
+      if (isRegisterClick) {
+        if (!ev.registrationOpen) {
+          showInfo(ev.name, 'Registration closed', '<div class="notice">' + esc(ev.closedMessage || 'Registration is closed for this event.') + '</div>');
+          return false;
+        }
+        selectEvent(ev);
+        go(2);
+        toast('Event selected', 'Fill in your details to register for ' + ev.name);
+        return false;
       }
+      openEventDetails(ev);
     }
   });
 }
