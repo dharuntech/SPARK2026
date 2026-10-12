@@ -113,4 +113,6 @@ function createApp() {
   return app;
 }
 
-module.exports = { createApp };
+const defaultApp = createApp();
+defaultApp.createApp = createApp;
+module.exports = defaultApp;

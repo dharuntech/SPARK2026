@@ -24,7 +24,11 @@ async function main() {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-main().catch((err) => {
-  console.error('Failed to start Spark’26 server:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('Failed to start Spark’26 server:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = require('./app');
