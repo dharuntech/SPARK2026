@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#F5F7FF"><meta name="color-scheme" content="light">
 <title>Spark’26 — CSE Symposium</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/circular-gallery.bundle.css">
 
 <style>
 :root{--bg:#050611;--bg2:#090b1d;--surface:rgba(15,18,43,.78);--surface-strong:#10142c;--surface-2:#171b3b;--ink:#f5f7ff;--muted:#a7afd2;--faint:#727ba5;--line:rgba(133,150,255,.2);--violet:#9b6cff;--blue:#5b8cff;--cyan:#43e6e1;--green:#55dbab;--red:#ff6f91;--gold:#ffca74;--shadow:0 24px 80px rgba(0,0,0,.36);--shadow-sm:0 12px 34px rgba(0,0,0,.26);--sans:'DM Sans',Inter,system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace}
@@ -834,6 +835,13 @@ nav#nav .nav-cta,.hero-cta,.cta,.card .actions .mini.primary,.mini.primary{backg
 .lightbox-btn.close:hover{background:#b91c1c}
 .lightbox-viewport{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;position:relative;padding:16px;touch-action:pan-x pan-y pinch-zoom}
 .lightbox-img{max-width:96%;max-height:88vh;object-fit:contain;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.65);transition:transform .2s cubic-bezier(.2,.8,.2,1);transform-origin:center center}
+
+/* Circular Gallery integration in Spark26 Events page */
+.circular-gallery-stage{max-width:1120px;margin:0 auto 28px;position:relative;border-radius:24px;background:radial-gradient(ellipse at 50% 50%,rgba(35,78,120,.12) 0%,rgba(10,25,42,.35) 75%,transparent 100%),linear-gradient(180deg,rgba(14,29,44,.6) 0%,rgba(8,18,28,.8) 100%);border:1px solid rgba(133,199,255,.22);box-shadow:0 20px 60px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);overflow:hidden;backdrop-filter:blur(12px)}
+.circular-gallery-kicker{position:absolute;top:14px;left:20px;z-index:5;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);background:rgba(10,24,38,.65);padding:5px 12px;border-radius:999px;border:1px solid rgba(67,230,225,.25);pointer-events:none}
+.circular-gallery-root,.spark-circular-gallery-container{height:600px;position:relative;width:100%}
+@media(max-width:900px){.circular-gallery-stage{margin-bottom:20px;border-radius:18px}.circular-gallery-root,.spark-circular-gallery-container{height:440px}}
+@media(max-width:600px){.circular-gallery-kicker{top:10px;left:12px;font-size:8.5px;padding:4px 9px}.circular-gallery-root,.spark-circular-gallery-container{height:400px}}
 </style>
 </head>
 <body data-page="0">
@@ -866,7 +874,22 @@ nav#nav .nav-cta,.hero-cta,.cta,.card .actions .mini.primary,.mini.primary{backg
   </div>
 </div>
 </section>
-<section class="section" id="s1"><div class="section-head"><div class="eyebrow">→ Explore Spark’26</div><h2>Technical &amp; non-technical.<span class="dim">One event stack.</span></h2><p>Explore and register for published events.</p></div><div class="event-grid" id="eventGrid"></div></section>
+<section class="section" id="s1"><div class="section-head"><div class="eyebrow">→ Explore Spark’26</div><h2>Technical &amp; non-technical.<span class="dim">One event stack.</span></h2><p>Explore and register for published events.</p></div>
+<div class="circular-gallery-stage" id="galleryStage">
+  <div class="circular-gallery-kicker">3D Spotlight Gallery • Drag or scroll to browse</div>
+  <div id="circularGalleryRoot" class="circular-gallery-root"></div>
+</div>
+<div class="toolbar" id="eventsToolbar">
+  <button class="filter active" data-filter="ALL" type="button">All categories</button>
+  <button class="filter" data-filter="TECHNICAL" type="button">Technical</button>
+  <button class="filter" data-filter="NON_TECHNICAL" type="button">Non-technical</button>
+  <button class="filter" data-filter="WORKSHOP" type="button">Workshops</button>
+  <button class="filter" data-filter="GAMING" type="button">Gaming</button>
+  <div class="search">
+    <input id="eventSearch" type="search" placeholder="Search events..." autocomplete="off">
+  </div>
+</div>
+<div class="event-grid" id="eventGrid"></div></section>
 <section class="section" id="s2"><div class="section-head"><div class="eyebrow">→ Student registration</div><h2>One form.<span class="dim">One verified pass.</span></h2><p>Use your academic details once. Your pass is stored in this browser for quick access.</p></div><div class="panel-grid"><div class="panel"><span class="label">01 / Selected event</span><h3 id="selectedTitle">Choose an event</h3><p id="selectedMeta" class="helper"></p><div class="notice">Only the student details needed for event registration are collected here. Fields are validated before a pass is created.</div></div><div class="panel"><span class="label">02 / Student details</span><form id="regForm" novalidate><div class="form-grid"><div class="field"><label class="label" for="rName">Full name</label><input id="rName" required autocomplete="name" placeholder="Your name"></div><div class="field"><label class="label" for="rDept">Department</label><input id="rDept" required placeholder="CSE"></div><div class="field"><label class="label" for="rYear">Year</label><select id="rYear" required><option value="">Select</option><option>I</option><option>II</option><option>III</option><option>IV</option></select></div><div class="field"><label class="label" for="rSection">Section</label><input id="rSection" required placeholder="A"></div><div class="field"><label class="label" for="rRegno">Register number</label><input id="rRegno" required placeholder="24CSE001"></div><div class="field"><label class="label" for="rEmail">Email</label><input id="rEmail" type="email" required autocomplete="email" placeholder="you@example.com"></div></div><div id="regError" class="form-error" role="alert"></div><div class="actions"><button class="cta" type="submit" id="regSubmit">Generate my pass</button></div></form></div></div></section>
 <section class="section" id="s3"><div class="section-head"><div class="eyebrow">→ My Spark’26 pass</div><h2>One QR.<span class="dim">One check-in.</span></h2><p>Show the generated pass at the venue. Attendance status updates when an admin verifies the registration.</p></div><div class="pass-grid"><div class="ticket"><div class="ticket-head"><div><h3 id="passEvent">No registration yet</h3><div class="ticket-id" id="passId">—</div></div><span class="status" id="passStatus">NO PASS</span></div><div class="ticket-grid"><div>NAME<b id="passName">—</b></div><div>REGISTER NO.<b id="passReg">—</b></div><div>CATEGORY<b id="passCategory">—</b></div><div>VENUE<b id="passVenue">—</b></div><div>TIME<b id="passTime">—</b></div><div>ATTENDANCE<b id="passAttendance">—</b></div></div><div class="pass-switcher hidden" id="passSwitcher"></div><p class="helper pass-hint" id="passHint"></p><div class="actions" style="justify-content:flex-start"><button class="mini primary" id="refreshPass">Refresh pass</button><button class="mini" id="downloadQr" type="button" disabled>Download QR</button></div></div><div class="qrbox"><div id="qr" class="qr" aria-label="QR pass"></div></div></div></div><div class="pass-grid" style="margin-top:18px"><div class="panel" style="grid-column:1/-1"><span class="label">Pass retrieval</span><h3>Find my pass</h3><p class="helper">Passes are private to each student. Enter the register number and email you registered with to restore your passes on this device — a registration ID alone is never enough to open someone else’s pass.</p><form id="passLookupForm"><div class="form-grid"><div class="field"><label class="label" for="lookupRegno">Register number</label><input id="lookupRegno" required placeholder="24CSE001"></div><div class="field"><label class="label" for="lookupEmail">Email</label><input id="lookupEmail" type="email" required placeholder="you@example.com"></div></div><div id="passLookupMsg" class="form-error" role="alert"></div><div class="actions"><button class="cta" type="submit" id="passLookupBtn">Find my pass</button></div></form></div></div></section>
 <section class="section" id="s4"><div class="section-head"><div class="eyebrow">→ Get in touch</div><h2>Meet the team.<span class="dim">Say hello.</span></h2><p>The students behind the Spark’26 website. Reach out for anything about the event or the site.</p></div>
@@ -916,6 +939,7 @@ nav#nav .nav-cta,.hero-cta,.cta,.card .actions .mini.primary,.mini.primary{backg
 </div></div>
 <div class="toast" id="toast" role="status"></div>
 <script src="/vendor/html5-qrcode.min.js" defer></script>
+<script src="/vendor/circular-gallery.bundle.js" defer></script>
 <script src="/app.js" defer></script>
 
 <script>(function(){

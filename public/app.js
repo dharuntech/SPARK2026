@@ -1,3 +1,52 @@
+
+function openEventDetails(ev){
+  if(!ev)return;
+  const brochureImg = ev.brochureUrl || ev.imageUrl;
+  const topBrochure = brochureImg ? '<div class="detail-brochure-card" data-lightbox-src="'+esc(brochureImg)+'" data-lightbox-title="'+esc(ev.name)+' Brochure &amp; Poster" title="Click to view full screen"><img class="detail-brochure-img" src="'+esc(brochureImg)+'" alt="'+esc(ev.name)+' brochure" onerror="this.parentElement.remove()"><div class="detail-brochure-badge">🔍 Tap to open full screen</div></div>' : '';
+  const metaGrid = '<div class="detail-meta-grid">'
+    + '<div class="detail-meta-card"><span class="detail-label">VENUE</span><b class="detail-val">'+esc(ev.venue)+'</b></div>'
+    + '<div class="detail-meta-card"><span class="detail-label">DATE &amp; TIME</span><b class="detail-val">'+esc(ev.dateLabel)+' • '+esc(ev.timeLabel)+'</b></div>'
+    + '<div class="detail-meta-card"><span class="detail-label">REGISTRATION MODE</span><b class="detail-val">'+esc(ev.modeLabel)+'</b></div>'
+    + '<div class="detail-meta-card"><span class="detail-label">PARTICIPANTS</span><b class="detail-val">'+esc(seatLabel(ev))+'</b></div>'
+    + '</div>';
+  const descBox = '<div class="detail-desc-box"><h4>About this event</h4><p>'+esc(ev.description)+'</p>'
+    + (ev.registrationDeadlineLabel ? '<div class="detail-deadline">⏰ Online registration closes: <strong>'+esc(ev.registrationDeadlineLabel)+'</strong></div>' : '')
+    + '</div>';
+  const body = topBrochure + metaGrid + descBox + (ev.registrationOpen ? '<div class="actions" style="margin-top:14px"><button class="cta" id="detailRegister">Register for this event</button></div>' : '<div class="notice" style="margin-top:14px">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');
+  showInfo(ev.name, ev.categoryLabel+' • '+ev.code, body);
+  const dr=$('detailRegister');if(dr)dr.onclick=()=>{closeInfo();selectEvent(ev);go(2)};
+}
+
+function updateCircularGallery(){
+  const root = $('circularGalleryRoot');
+  if(!root || typeof window.mountSparkCircularGallery !== 'function') return;
+  if(!events || !events.length) return;
+
+  const filtered = activeFilter === 'ALL' ? events : events.filter(e => e.category === activeFilter);
+  const listToDisplay = filtered.length ? filtered : events;
+
+  const galleryItems = listToDisplay.map(e => ({
+    id: e.id,
+    image: e.imageUrl || e.brochureUrl || '/images/spark25-showcase-tracks.png',
+    text: e.name,
+    description: (e.categoryLabel || 'Spark\'26 Event') + ' • ' + (e.venue || 'Campus Venue') + ' • ' + (e.dateLabel || 'Symposium Day'),
+    alt: e.name + ' poster',
+    category: e.category,
+    categoryLabel: e.categoryLabel,
+    code: e.code
+  }));
+
+  window.mountSparkCircularGallery(root, {
+    items: galleryItems,
+    onItemClick: (item, index) => {
+      const ev = eventById(item.id || item.text) || listToDisplay[index] || events[index];
+      if(ev){
+        openEventDetails(ev);
+      }
+    }
+  });
+}
+
 (function(){'use strict';
 const $=id=>document.getElementById(id);
 /* ── Spark'26 data layer ────────────────────────────────────────────────
@@ -67,6 +116,55 @@ grid.addEventListener('pointerleave',()=>{reset(cur);cur=null});
 document.querySelectorAll('.pager button').forEach(b=>b.addEventListener('click',()=>go(+b.dataset.section)));
 })();
 function eventById(id){return events.find(e=>e.id===id||e.code===id)||null}
+
+function openEventDetails(ev){
+  if(!ev)return;
+  const brochureImg = ev.brochureUrl || ev.imageUrl;
+  const topBrochure = brochureImg ? '<div class="detail-brochure-card" data-lightbox-src="'+esc(brochureImg)+'" data-lightbox-title="'+esc(ev.name)+' Brochure &amp; Poster" title="Click to view full screen"><img class="detail-brochure-img" src="'+esc(brochureImg)+'" alt="'+esc(ev.name)+' brochure" onerror="this.parentElement.remove()"><div class="detail-brochure-badge">🔍 Tap to open full screen</div></div>' : '';
+  const metaGrid = '<div class="detail-meta-grid">'
+    + '<div class="detail-meta-card"><span class="detail-label">VENUE</span><b class="detail-val">'+esc(ev.venue)+'</b></div>'
+    + '<div class="detail-meta-card"><span class="detail-label">DATE &amp; TIME</span><b class="detail-val">'+esc(ev.dateLabel)+' • '+esc(ev.timeLabel)+'</b></div>'
+    + '<div class="detail-meta-card"><span class="detail-label">REGISTRATION MODE</span><b class="detail-val">'+esc(ev.modeLabel)+'</b></div>'
+    + '<div class="detail-meta-card"><span class="detail-label">PARTICIPANTS</span><b class="detail-val">'+esc(seatLabel(ev))+'</b></div>'
+    + '</div>';
+  const descBox = '<div class="detail-desc-box"><h4>About this event</h4><p>'+esc(ev.description)+'</p>'
+    + (ev.registrationDeadlineLabel ? '<div class="detail-deadline">⏰ Online registration closes: <strong>'+esc(ev.registrationDeadlineLabel)+'</strong></div>' : '')
+    + '</div>';
+  const body = topBrochure + metaGrid + descBox + (ev.registrationOpen ? '<div class="actions" style="margin-top:14px"><button class="cta" id="detailRegister">Register for this event</button></div>' : '<div class="notice" style="margin-top:14px">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');
+  showInfo(ev.name, ev.categoryLabel+' • '+ev.code, body);
+  const dr=$('detailRegister');if(dr)dr.onclick=()=>{closeInfo();selectEvent(ev);go(2)};
+}
+
+function updateCircularGallery(){
+  const root = $('circularGalleryRoot');
+  if(!root || typeof window.mountSparkCircularGallery !== 'function') return;
+  if(!events || !events.length) return;
+
+  const filtered = activeFilter === 'ALL' ? events : events.filter(e => e.category === activeFilter);
+  const listToDisplay = filtered.length ? filtered : events;
+
+  const galleryItems = listToDisplay.map(e => ({
+    id: e.id,
+    image: e.imageUrl || e.brochureUrl || '/images/spark25-showcase-tracks.png',
+    text: e.name,
+    description: (e.categoryLabel || 'Spark\'26 Event') + ' • ' + (e.venue || 'Campus Venue') + ' • ' + (e.dateLabel || 'Symposium Day'),
+    alt: e.name + ' poster',
+    category: e.category,
+    categoryLabel: e.categoryLabel,
+    code: e.code
+  }));
+
+  window.mountSparkCircularGallery(root, {
+    items: galleryItems,
+    onItemClick: (item, index) => {
+      const ev = eventById(item.id || item.text) || listToDisplay[index] || events[index];
+      if(ev){
+        openEventDetails(ev);
+      }
+    }
+  });
+}
+
 function cardMedia(e){const fb='<span>'+esc(e.code)+'</span><b>'+esc(e.categoryLabel)+'</b>';return e.imageUrl?'<div class="card-media"><img loading="lazy" alt="'+esc(e.name)+' poster" src="'+esc(e.imageUrl)+'" onerror="this.onerror=null;this.parentElement.className=\'card-media fallback\';this.parentElement.innerHTML=\''+fb+'\'"></div>':'<div class="card-media fallback">'+fb+'</div>'}
 function seatLabel(e){return e.maxCapacity!=null?(e.registeredCount+' / '+e.maxCapacity+' registered'):(e.registeredCount+(e.registeredCount===1?' student registered':' students registered'))}
 function renderEvents(){const q=$('eventSearch')?$('eventSearch').value.trim().toLowerCase():'',grid=$('eventGrid');
@@ -75,27 +173,13 @@ grid.innerHTML=list.length?list.map(e=>{const open=e.registrationOpen;const stat
 return '<article class="card" data-event="'+esc(e.id)+'">'+cardMedia(e)+'<div class="meta"><span>'+esc(e.code)+'</span><span class="tag">'+esc(e.categoryLabel)+'</span></div><h3>'+esc(e.name)+'</h3><p>'+esc(e.description)+'</p><div class="kv"><div>VENUE<b>'+esc(e.venue)+'</b></div><div>TIME<b>'+esc(e.dateLabel)+' · '+esc(e.timeLabel)+'</b></div><div>MODE<b>'+esc(e.modeLabel)+'</b></div><div>STATUS<b class="'+(open?'st-open':'st-closed')+'">'+statusText+'</b></div></div><div class="card-seats">'+esc(seatLabel(e))+'</div><div class="actions"><button class="mini primary" data-reg="'+esc(e.id)+'"'+(open?'':' disabled title="'+esc(e.closedMessage||'Registration closed')+'"')+'>'+(open?'Register':'Registration closed')+'</button><button class="mini" data-info="'+esc(e.id)+'">Details</button></div></article>'}).join(''):'<div class="empty">'+(loadState==='loading'?'Loading events from the server…':loadState==='error'?'Events could not be loaded from the server. Please refresh the page to try again.':'No published events match your search.')+'</div>';
 if($('countEvents'))$('countEvents').textContent=String(events.length).padStart(2,'0');
 if($('countTechnical'))$('countTechnical').textContent=String(events.filter(e=>e.category==='TECHNICAL').length).padStart(2,'0');
-if($('countRegs'))$('countRegs').textContent=String(events.reduce((a,e)=>a+(e.registeredCount||0),0)).padStart(2,'0')}
+if($('countRegs'))$('countRegs').textContent=String(events.reduce((a,e)=>a+(e.registeredCount||0),0)).padStart(2,'0');updateCircularGallery()}
 async function loadEvents(){loadState='loading';renderEvents();try{const d=await api('/api/events');events=d.events||[];loadState='ready'}catch(err){loadState='error';events=[];toast('Events unavailable',err.message)}renderEvents();if(selectedId&&!eventById(selectedId))selectedId='';if(!selectedId&&events.length)selectedId=events[0].id;updateSelected()}
 document.querySelectorAll('.filter[data-filter]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.filter[data-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');activeFilter=b.dataset.filter;renderEvents()}));
 if($('eventSearch'))$('eventSearch').addEventListener('input',renderEvents);
 $('eventGrid').addEventListener('click',e=>{const r=e.target.closest('[data-reg]'),d=e.target.closest('[data-info]');
 if(r){if(r.disabled)return;const ev=eventById(r.dataset.reg);if(!ev)return;if(!ev.registrationOpen){showInfo(ev.name,'Registration closed','<div class="notice">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');return}selectEvent(ev);go(2)}
-if(d){const ev=eventById(d.dataset.info);if(!ev)return;
-const brochureImg = ev.brochureUrl || ev.imageUrl;
-const topBrochure = brochureImg ? '<div class="detail-brochure-card" data-lightbox-src="'+esc(brochureImg)+'" data-lightbox-title="'+esc(ev.name)+' Brochure &amp; Poster" title="Click to view full screen"><img class="detail-brochure-img" src="'+esc(brochureImg)+'" alt="'+esc(ev.name)+' brochure" onerror="this.parentElement.remove()"><div class="detail-brochure-badge">🔍 Tap to open full screen</div></div>' : '';
-const metaGrid = '<div class="detail-meta-grid">'
-  + '<div class="detail-meta-card"><span class="detail-label">VENUE</span><b class="detail-val">'+esc(ev.venue)+'</b></div>'
-  + '<div class="detail-meta-card"><span class="detail-label">DATE &amp; TIME</span><b class="detail-val">'+esc(ev.dateLabel)+' · '+esc(ev.timeLabel)+'</b></div>'
-  + '<div class="detail-meta-card"><span class="detail-label">REGISTRATION MODE</span><b class="detail-val">'+esc(ev.modeLabel)+'</b></div>'
-  + '<div class="detail-meta-card"><span class="detail-label">PARTICIPANTS</span><b class="detail-val">'+esc(seatLabel(ev))+'</b></div>'
-  + '</div>';
-const descBox = '<div class="detail-desc-box"><h4>About this event</h4><p>'+esc(ev.description)+'</p>'
-  + (ev.registrationDeadlineLabel ? '<div class="detail-deadline">⏰ Online registration closes: <strong>'+esc(ev.registrationDeadlineLabel)+'</strong></div>' : '')
-  + '</div>';
-const body = topBrochure + metaGrid + descBox + (ev.registrationOpen ? '<div class="actions" style="margin-top:14px"><button class="cta" id="detailRegister">Register for this event</button></div>' : '<div class="notice" style="margin-top:14px">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');
-showInfo(ev.name, ev.categoryLabel+' · '+ev.code, body);
-const dr=$('detailRegister');if(dr)dr.onclick=()=>{closeInfo();selectEvent(ev);go(2)}}});
+if(d){const ev=eventById(d.dataset.info);if(!ev)return;openEventDetails(ev);}});
 function selectEvent(ev){if(!ev)return;selectedId=ev.id;updateSelected()}
 function updateSelected(){const e=eventById(selectedId)||events[0]||null;
 if(!e){$('selectedTitle').textContent='Choose an event';$('selectedMeta').textContent='No published events are available right now.';return}

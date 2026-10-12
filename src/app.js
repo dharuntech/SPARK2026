@@ -55,7 +55,7 @@ function createApp() {
           imgSrc: ["'self'", 'data:', 'blob:'],
           fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
           mediaSrc: ["'self'", 'blob:', 'data:'],
-          connectSrc: ["'self'"],
+          connectSrc: ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
           formAction: ["'self'"],

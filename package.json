@@ -5,8 +5,9 @@
   "description": "Spark'26 CSE Symposium - registration, QR pass, attendance & Excel export platform",
   "main": "src/server.js",
   "scripts": {
-    "build": "prisma generate",
-    "vercel-build": "prisma generate",
+    "build": "prisma generate && node scripts/build-gallery.js",
+    "vercel-build": "prisma generate && node scripts/build-gallery.js",
+    "build:gallery": "node scripts/build-gallery.js",
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "db:generate": "prisma generate",
@@ -44,9 +45,12 @@
     "html5-qrcode": "^2.3.8",
     "multer": "^1.4.4",
     "qrcode": "^1.5.4",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "jsqr": "^1.4.0",
     "pngjs": "^7.0.0",
     "prisma": "^6.19.3",
