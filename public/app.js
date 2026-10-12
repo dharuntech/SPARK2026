@@ -72,11 +72,12 @@ function openEventDetails(ev){
   if(!ev)return;
   const brochureImg = ev.brochureUrl || ev.imageUrl;
   const topBrochure = brochureImg ? '<div class="detail-brochure-card" data-lightbox-src="'+esc(brochureImg)+'" data-lightbox-title="'+esc(ev.name)+' Brochure &amp; Poster" title="Click to view full screen"><img class="detail-brochure-img" src="'+esc(brochureImg)+'" alt="'+esc(ev.name)+' brochure" onerror="this.parentElement.remove()"><div class="detail-brochure-badge">🔍 Tap to open full screen</div></div>' : '';
+  const statusStr = ev.registrationOpen ? 'OPEN' : (ev.closedReason==='FULL'?'FULL':ev.closedReason==='ON_SPOT_ONLY'?'ON-SPOT':ev.closedReason==='CANCELLED'?'CANCELLED':ev.closedReason==='COMPLETED'?'COMPLETED':'CLOSED');
   const metaGrid = '<div class="detail-meta-grid">'
     + '<div class="detail-meta-card"><span class="detail-label">VENUE</span><b class="detail-val">'+esc(ev.venue)+'</b></div>'
     + '<div class="detail-meta-card"><span class="detail-label">DATE &amp; TIME</span><b class="detail-val">'+esc(ev.dateLabel)+' • '+esc(ev.timeLabel)+'</b></div>'
     + '<div class="detail-meta-card"><span class="detail-label">REGISTRATION MODE</span><b class="detail-val">'+esc(ev.modeLabel)+'</b></div>'
-    + '<div class="detail-meta-card"><span class="detail-label">PARTICIPANTS</span><b class="detail-val">'+esc(seatLabel(ev))+'</b></div>'
+    + '<div class="detail-meta-card"><span class="detail-label">STATUS</span><b class="detail-val '+(ev.registrationOpen?'st-open':'st-closed')+'">'+statusStr+'</b></div>'
     + '</div>';
   const descBox = '<div class="detail-desc-box"><h4>About this event</h4><p>'+esc(ev.description)+'</p>'
     + (ev.registrationDeadlineLabel ? '<div class="detail-deadline">⏰ Online registration closes: <strong>'+esc(ev.registrationDeadlineLabel)+'</strong></div>' : '')
@@ -257,13 +258,6 @@ function drawEventCardCanvas(ev, img) {
   ctx.font = '800 18px "DM Sans", sans-serif';
   ctx.fillText(isOpen ? 'OPEN' : 'CLOSED', col2X, row2Y + 22);
 
-  // Registered students count
-  const seatsY = row2Y + 54;
-  ctx.fillStyle = '#64748b';
-  ctx.font = '600 14px "JetBrains Mono", monospace';
-  const seatsText = seatLabel(ev);
-  ctx.fillText(seatsText, padX, seatsY);
-
   // Action buttons
   const btnY = height - 100;
   const btnH = 54;
@@ -329,7 +323,7 @@ function drawEventCardCanvas(ev, img) {
 
 function getEventCardTexture(ev, onReady) {
   const imgSrc = ev.imageUrl || ev.brochureUrl || '/images/spark25-showcase-tracks.png';
-  const cacheKey = ev.id + '_' + ev.registeredCount + '_' + ev.registrationOpen + '_' + imgSrc;
+  const cacheKey = ev.id + '_' + ev.registrationOpen + '_' + imgSrc;
   if (cardTextureCache.has(cacheKey)) {
     return cardTextureCache.get(cacheKey);
   }
@@ -413,11 +407,11 @@ function updateCircularGallery(){
 
 
 function cardMedia(e){const fb='<span>'+esc(e.code)+'</span><b>'+esc(e.categoryLabel)+'</b>';return e.imageUrl?'<div class="card-media"><img loading="lazy" alt="'+esc(e.name)+' poster" src="'+esc(e.imageUrl)+'" onerror="this.onerror=null;this.parentElement.className=\'card-media fallback\';this.parentElement.innerHTML=\''+fb+'\'"></div>':'<div class="card-media fallback">'+fb+'</div>'}
-function seatLabel(e){return e.maxCapacity!=null?(e.registeredCount+' / '+e.maxCapacity+' registered'):(e.registeredCount+(e.registeredCount===1?' student registered':' students registered'))}
+function seatLabel(e){return ''}
 function renderEvents(){const q=$('eventSearch')?$('eventSearch').value.trim().toLowerCase():'',grid=$('eventGrid');
 const list=events.filter(e=>(activeFilter==='ALL'||e.category===activeFilter)&&(!q||[e.name,e.description,e.venue,e.categoryLabel,e.code].join(' ').toLowerCase().includes(q)));
 grid.innerHTML=list.length?list.map(e=>{const open=e.registrationOpen;const statusText=open?'OPEN':(e.closedReason==='FULL'?'FULL':e.closedReason==='ON_SPOT_ONLY'?'ON-SPOT':e.closedReason==='CANCELLED'?'CANCELLED':e.closedReason==='COMPLETED'?'COMPLETED':'CLOSED');
-return '<article class="card" data-event="'+esc(e.id)+'">'+cardMedia(e)+'<div class="meta"><span>'+esc(e.code)+'</span><span class="tag">'+esc(e.categoryLabel)+'</span></div><h3>'+esc(e.name)+'</h3><p>'+esc(e.description)+'</p><div class="kv"><div>VENUE<b>'+esc(e.venue)+'</b></div><div>TIME<b>'+esc(e.dateLabel)+' · '+esc(e.timeLabel)+'</b></div><div>MODE<b>'+esc(e.modeLabel)+'</b></div><div>STATUS<b class="'+(open?'st-open':'st-closed')+'">'+statusText+'</b></div></div><div class="card-seats">'+esc(seatLabel(e))+'</div><div class="actions"><button class="mini primary" data-reg="'+esc(e.id)+'"'+(open?'':' disabled title="'+esc(e.closedMessage||'Registration closed')+'"')+'>'+(open?'Register':'Registration closed')+'</button><button class="mini" data-info="'+esc(e.id)+'">Details</button></div></article>'}).join(''):'<div class="empty">'+(loadState==='loading'?'Loading events from the server…':loadState==='error'?'Events could not be loaded from the server. Please refresh the page to try again.':'No published events match your search.')+'</div>';
+return '<article class="card" data-event="'+esc(e.id)+'">'+cardMedia(e)+'<div class="meta"><span>'+esc(e.code)+'</span><span class="tag">'+esc(e.categoryLabel)+'</span></div><h3>'+esc(e.name)+'</h3><p>'+esc(e.description)+'</p><div class="kv"><div>VENUE<b>'+esc(e.venue)+'</b></div><div>TIME<b>'+esc(e.dateLabel)+' · '+esc(e.timeLabel)+'</b></div><div>MODE<b>'+esc(e.modeLabel)+'</b></div><div>STATUS<b class="'+(open?'st-open':'st-closed')+'">'+statusText+'</b></div></div><div class="actions"><button class="mini primary" data-reg="'+esc(e.id)+'"'+(open?'':' disabled title="'+esc(e.closedMessage||'Registration closed')+'"')+'>'+(open?'Register':'Registration closed')+'</button><button class="mini" data-info="'+esc(e.id)+'">Details</button></div></article>'}).join(''):'<div class="empty">'+(loadState==='loading'?'Loading events from the server…':loadState==='error'?'Events could not be loaded from the server. Please refresh the page to try again.':'No published events match your search.')+'</div>';
 if($('countEvents'))$('countEvents').textContent=String(events.length).padStart(2,'0');
 if($('countTechnical'))$('countTechnical').textContent=String(events.filter(e=>e.category==='TECHNICAL').length).padStart(2,'0');
 if($('countRegs'))$('countRegs').textContent=String(events.reduce((a,e)=>a+(e.registeredCount||0),0)).padStart(2,'0');updateCircularGallery()}
