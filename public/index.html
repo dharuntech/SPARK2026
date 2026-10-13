@@ -550,7 +550,10 @@ nav#nav a.active{background:transparent!important}
 
 /* avoid double check icon */
 .burst+.success:before{display:none!important}
-@media(max-width:700px){.fx-ambient .fo{filter:blur(34px)}.fx-ambient .c{display:none}}
+@media(max-width:768px){
+  .fx-ambient .fo{animation:none!important;filter:blur(16px)!important;opacity:.35!important;will-change:auto!important}
+  .fx-ambient .c{display:none!important}
+}
 @media(prefers-reduced-motion:reduce){
   .fx-ambient .fo,.qrbox .fx-scan,.burst:before,.burst:after{animation:none!important}
   .fx-sweep{display:none}
@@ -884,7 +887,7 @@ nav#nav .nav-cta,.hero-cta,.cta,.card .actions .mini.primary,.mini.primary{backg
 <div class="fx-ambient" aria-hidden="true"><i class="fo a"></i><i class="fo b"></i><i class="fo c"></i></div><div class="fx-sweep" id="fxSweep" aria-hidden="true"></div>
 <div class="vignette"></div>
 <div class="topbar"><span>Welcome To Spark’26</span><div class="tb-links"><a data-section="1">Events</a><a data-section="3">My Pass</a><a data-section="5">About SPARK</a><a data-section="4">Contacts</a></div></div>
-<nav id="nav"><div class="brand" data-section="0" role="button" tabindex="0"><b>{ }</b><span>Spark’26</span></div><a data-section="1">Events</a><a data-section="3">My Pass</a><a data-section="5" class="nav-about"><span class="about-desktop">About SPARK</span><span class="about-mobile">About</span></a><a data-section="4" class="nav-contact">Contact</a><a data-section="4" class="nav-contacts-desktop">Contacts</a><button class="cta nav-cta" id="navReg">Register now</button><a id="navAdmin" class="admin-link">Admin</a></nav>
+<nav id="nav"><div class="brand" data-section="0" role="button" tabindex="0"><b>{ }</b><span>Spark’26</span></div><a data-section="1">Events</a><a data-section="3">My Pass</a><a data-section="5" class="nav-about"><span class="about-desktop">About SPARK</span><span class="about-mobile">About</span></a><a data-section="4" class="nav-contact">Contact</a><a data-section="4" class="nav-contacts-desktop">Contacts</a><a id="navAdmin" class="admin-link">Admin</a></nav>
 <div class="pager" id="pager" role="tablist" aria-label="Pages"><button class="active" data-section="0" title="Home" aria-label="Home"></button><button data-section="1" title="Events" aria-label="Events"></button><button data-section="2" title="Register" aria-label="Register"></button><button data-section="3" title="My Pass" aria-label="My Pass"></button><button data-section="4" title="Contacts" aria-label="Contacts"></button><button data-section="5" title="About SPARK" aria-label="About SPARK"></button></div><div class="cursor" id="cursor"></div>
 <main>
 <section class="section home show" id="s0"><div class="hero-bg"></div>
@@ -894,7 +897,7 @@ nav#nav .nav-cta,.hero-cta,.cta,.card .actions .mini.primary,.mini.primary{backg
 <h1><span class="ln">Code.</span><span class="ln">Compete.</span><span class="ln"><span class="hl">Spark.</span></span></h1>
 <p class="lead2">Technical and non-technical events, one registration form and one QR pass. Pick your event, show up, and make it count.</p>
 <div class="term"><span class="prompt">$</span><span id="typed"></span><b class="caret"></b></div>
-<div class="hero-actions"><button class="cta hero-cta" data-section="1">Explore events <i>→</i></button><button class="ghost-btn" data-section="3">Get my pass</button></div>
+<div class="hero-actions"><button class="cta hero-cta" data-section="1">Register Now <i>→</i></button><button class="ghost-btn" data-section="3">Get my pass</button></div>
 </div></div>
 <div class="marquee" aria-hidden="true"><div class="mq a"><div class="mq-track"></div></div><div class="mq b"><div class="mq-track"></div></div></div>
 </div>
@@ -1008,7 +1011,7 @@ nav#nav .nav-cta,.hero-cta,.cta,.card .actions .mini.primary,.mini.primary{backg
 <article class="card about-card"><div class="meta" style="color:#1E40AF"><span class="tag" style="background:#E3EAFF!important;color:#1E40AF!important">02 · CREATIVITY</span></div><h3>Creative Thinking</h3><p>Encouraging out-of-the-box problem solving</p></article>
 <article class="card about-card"><div class="meta" style="color:#0E7490"><span class="tag" style="background:#E0F7FC!important;color:#0E7490!important">03 · FUTURE</span></div><h3>Future Ready</h3><p>Preparing students for tomorrow's challenges</p></article>
 </div>
-<div class="panel about-join"><span class="label">02 / Join The Revolution</span><h2>Join the Innovation Revolution</h2><p>Be part of a community that values creativity, technical excellence, and the power of collaborative innovation. Together, we're building the future of technology.</p><div class="actions" style="justify-content:center"><button class="cta" data-section="1">Explore Events <i>→</i></button></div></div>
+<div class="panel about-join"><span class="label">02 / Join The Revolution</span><h2>Join the Innovation Revolution</h2><p>Be part of a community that values creativity, technical excellence, and the power of collaborative innovation. Together, we're building the future of technology.</p><div class="actions" style="justify-content:center"><button class="cta" data-section="1">Register Now <i>→</i></button></div></div>
 </section>
 </main>
 <div class="overlay" id="loginOverlay" aria-hidden="true"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle"><div class="modal-head"><div><h3 id="loginTitle">Admin access</h3><p>Protected workspace for event publishing, participant data and attendance.</p></div><button class="close" id="closeLogin" aria-label="Close">×</button></div><form id="loginForm"><div class="form-grid"><div class="field full"><label class="label" for="loginEmail">Admin email</label><input id="loginEmail" type="email" required autocomplete="username" placeholder="you@college.edu"></div><div class="field full"><label class="label" for="loginPassword">Password</label><input id="loginPassword" type="password" required autocomplete="current-password" placeholder="Enter admin password"></div></div><div id="loginError" class="error" role="alert"></div><div class="actions"><button class="cta" type="submit" id="loginSubmit">Open admin</button><button class="ghost" type="button" id="forgotBtn">Forgot password?</button></div></form></div></div>
@@ -1066,19 +1069,20 @@ new MutationObserver(()=>{if(document.body.dataset.page==='0')setTimeout(countUp
 })();</script>
 
 <script>
-/* Quantum Prism: liquid-glass particle "26", crystal code glyphs, cursor gravity + click shockwaves */
 (function(){
 const s0=document.getElementById('s0'),hero=s0&&s0.querySelector('.hero3d'),cv=document.getElementById('prism'),num=hero&&hero.querySelector('.num26');
 if(!hero||!cv||!num||!cv.getContext)return;
 const ctx=cv.getContext('2d'),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+const isMobile=window.innerWidth<=768;
 const STOPS=[[29,78,216],[99,102,241],[124,58,237],[34,211,238]];
 const col=t=>{const k=Math.min(.999,Math.max(0,t))*3,i=k|0,f=k-i,a=STOPS[i],b=STOPS[i+1];return[a[0]+(b[0]-a[0])*f|0,a[1]+(b[1]-a[1])*f|0,a[2]+(b[2]-a[2])*f|0]};
-let W=0,H=0,dpr=1,gap=7,P=[],G=[],mono='monospace',waves=[],ready=false,t0=0;
+let W=0,H=0,dpr=1,gap=7,P=[],G=[],mono='monospace',waves=[],ready=false,t0=0,running=false;
 const ptr={x:-999,y:-999,sx:-999,sy:-999,on:false,t:0};
+
 function build(){
  if(!s0.offsetParent||s0.getAnimations().length)return false;
  const hr=hero.getBoundingClientRect();W=hr.width;H=hr.height;if(!W||!H)return false;
- dpr=Math.min(2,devicePixelRatio||1);cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+ dpr=isMobile?1:Math.min(1.5,devicePixelRatio||1);cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
  const nr=num.getBoundingClientRect(),rx=nr.left-hr.left,ry=nr.top-hr.top,rw=nr.width,rh=nr.height;
  if(!rw||!rh)return false;
  const cs=getComputedStyle(num),fs=parseFloat(cs.fontSize);
@@ -1087,7 +1091,7 @@ function build(){
  if('letterSpacing' in o)o.letterSpacing=(-.05*fs)+'px';
  o.fillStyle='#000000';o.fillText('26',rw/2,rh/2);
  const d=o.getImageData(0,0,off.width,off.height).data;
- gap=Math.max(4,Math.round(fs/46));P=[];
+ gap=Math.max(isMobile?8:4,Math.round(fs/(isMobile?32:46)));P=[];
  for(let y=gap/2;y<off.height;y+=gap)for(let x=gap/2;x<off.width;x+=gap){
   if(d[((y|0)*off.width+(x|0))*4+3]>140){const c=col(x/off.width);P.push({x:rx+x,y:ry+y,hx:rx+x,hy:ry+y,vx:0,vy:0,r:gap*.47,s:'rgb('+c[0]+','+c[1]+','+c[2]+')'})}}
  if(!P.length)return false;
@@ -1095,21 +1099,25 @@ function build(){
  G=[['{ }',-.08,.3],['</>',1.06,.78],['fn',.02,-.1]].map(a=>{const x=Math.min(W-R-6,Math.max(R+6,rx+a[1]*rw)),y=Math.min(H-R-6,Math.max(R+6,ry+a[2]*rh));return{t:a[0],x,y,hx:x,hy:y,vx:0,vy:0,R,ph:Math.random()*6}});
  s0.classList.add('prism-on');t0=0;return true;
 }
+
 function gem(g,now){
  const R=g.R,cx=g.x,cy=g.y+(reduce?0:Math.sin(now*.0011+g.ph)*2.5),v=[];
  for(let i=0;i<6;i++){const a=Math.PI/3*i-Math.PI/2;v.push([cx+Math.cos(a)*R,cy+Math.sin(a)*R])}
  const sh=['rgba(255,255,255,.9)','rgba(191,208,255,.8)','rgba(221,208,255,.8)','rgba(165,243,252,.75)','rgba(199,210,254,.8)','rgba(233,224,255,.85)'];
- ctx.shadowColor='rgba(124,58,237,.3)';ctx.shadowBlur=16;ctx.shadowOffsetY=6;
+ if(!isMobile){ctx.shadowColor='rgba(124,58,237,.3)';ctx.shadowBlur=16;ctx.shadowOffsetY=6}
  for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(v[i][0],v[i][1]);ctx.lineTo(v[(i+1)%6][0],v[(i+1)%6][1]);ctx.closePath();ctx.fillStyle=sh[i];ctx.fill()}
- ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+ if(!isMobile){ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0}
  ctx.strokeStyle='rgba(255,255,255,.95)';ctx.lineWidth=1;
  for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(v[i][0],v[i][1]);ctx.stroke()}
  ctx.beginPath();v.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.lineWidth=1.8;ctx.stroke();
  ctx.fillStyle='#3B3F9A';ctx.font='700 '+(R*.62)+'px '+mono;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(g.t,cx,cy+1);
 }
+
 function frame(now){
+ if(document.hidden||!s0.classList.contains('show')||document.body.dataset.page!=='0'){
+  running=false;return;
+ }
  requestAnimationFrame(frame);
- if(!s0.offsetParent||document.hidden)return;
  if(!ready){ready=build();if(!ready)return}
  if(!t0)t0=now;
  const rad=Math.max(70,gap*11),rad2=rad*rad;
@@ -1128,7 +1136,7 @@ function frame(now){
  /* prism dispersion rings: shockwaves + cursor halo */
  ctx.lineWidth=1.6;
  for(const w of waves){[['167,139,250',0],['99,130,255',4],['103,232,249',8]].forEach(c=>{ctx.beginPath();ctx.arc(w.x,w.y,w.r+c[1],0,6.2832);ctx.strokeStyle='rgba('+c[0]+','+(w.a*.55)+')';ctx.stroke()})}
- if(act&&ptr.on){
+ if(act&&ptr.on&&!isMobile){
   const vx=Math.max(-8,Math.min(8,(ptr.x-ptr.sx)*.35)),vy=Math.max(-8,Math.min(8,(ptr.y-ptr.sy)*.35));
   [['167,139,250',-3-vx,-vy],['99,130,255',3+vx,vy],['103,232,249',0,3]].forEach(c=>{ctx.beginPath();ctx.arc(ptr.sx+c[1],ptr.sy+c[2],50,0,6.2832);ctx.strokeStyle='rgba('+c[0]+',.5)';ctx.stroke()})}
  const ia=Math.min(1,(now-t0)/900);ctx.globalAlpha=ia;
@@ -1137,20 +1145,30 @@ function frame(now){
  for(const g of G)gem(g,now);
  ctx.globalAlpha=1;
 }
+
+function resumePrism(){
+ if(running||document.hidden||!s0.classList.contains('show'))return;
+ running=true;
+ requestAnimationFrame(frame);
+}
+window.__resumePrism=resumePrism;
+
 addEventListener('pointermove',e=>{
- if(!s0.offsetParent)return;const r=cv.getBoundingClientRect();ptr.x=e.clientX-r.left;ptr.y=e.clientY-r.top;
+ if(e.pointerType!=='mouse'||!s0.offsetParent)return;
+ const r=cv.getBoundingClientRect();ptr.x=e.clientX-r.left;ptr.y=e.clientY-r.top;
  if(ptr.sx<-500){ptr.sx=ptr.x;ptr.sy=ptr.y}ptr.on=true;
- if(e.pointerType!=='mouse'){clearTimeout(ptr.t);ptr.t=setTimeout(()=>{ptr.on=false},350)}
+ resumePrism();
 });
 document.documentElement.addEventListener('mouseleave',()=>{ptr.on=false});
 s0.addEventListener('pointerdown',e=>{
  if(reduce||(e.target.closest&&e.target.closest('button,a,input,select,textarea')))return;
  const r=cv.getBoundingClientRect();waves.push({x:e.clientX-r.left,y:e.clientY-r.top,r:0,a:1});if(waves.length>4)waves.shift();
+ resumePrism();
 });
-if(window.ResizeObserver){const ro=new ResizeObserver(()=>{ready=false});ro.observe(hero);ro.observe(num)}
-else addEventListener('resize',()=>{ready=false});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{ready=false});
-requestAnimationFrame(frame);
+if(window.ResizeObserver){const ro=new ResizeObserver(()=>{ready=false;resumePrism()});ro.observe(hero);ro.observe(num)}
+else addEventListener('resize',()=>{ready=false;resumePrism()});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{ready=false;resumePrism()});
+resumePrism();
 })();
 </script>
 
@@ -1226,57 +1244,91 @@ if(qr){
 
 
 <script>
-/* draggable, springy glass orbs */
+/* draggable, springy glass orbs - optimized with auto-sleep */
 (function(){
 const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+const isMobile=window.innerWidth<=768;
 const orbs=[...document.querySelectorAll('.gl-orb')].filter(o=>getComputedStyle(o).display!=='none');
 if(!orbs.length)return;
 const S=orbs.map(el=>({el,x:0,y:0,vx:0,vy:0,sc:1,vs:0,drag:false,moved:0,lx:0,ly:0,lt:0}));
 const ptr={x:-999,y:-999,on:false};
-addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){ptr.x=e.clientX;ptr.y=e.clientY;ptr.on=true}});
+let ticking=false;
+
+function wakeOrbs(){
+  if(!ticking && document.getElementById('s0')?.classList.contains('show') && !document.hidden){
+    ticking=true;
+    requestAnimationFrame(tick);
+  }
+}
+window.__wakeOrbs = wakeOrbs;
+
+addEventListener('pointermove',e=>{
+  if(e.pointerType==='mouse'){
+    ptr.x=e.clientX;ptr.y=e.clientY;ptr.on=true;
+    wakeOrbs();
+  }
+});
 document.documentElement.addEventListener('mouseleave',()=>{ptr.on=false});
 S.forEach(o=>{
   const el=o.el;
   el.addEventListener('pointerdown',e=>{
     e.stopPropagation();o.drag=true;o.moved=0;o.lx=e.clientX;o.ly=e.clientY;o.lt=performance.now();o.vx=o.vy=0;
     el.setPointerCapture(e.pointerId);el.classList.add('grab');o.vs=0;o.sc=1.08;
+    wakeOrbs();
   });
   el.addEventListener('pointermove',e=>{
     if(!o.drag)return;
     const dx=e.clientX-o.lx,dy=e.clientY-o.ly,now=performance.now(),dt=Math.max(8,now-o.lt);
     o.x+=dx;o.y+=dy;o.moved+=Math.abs(dx)+Math.abs(dy);
     o.vx=dx/dt*16;o.vy=dy/dt*16;o.lx=e.clientX;o.ly=e.clientY;o.lt=now;
+    wakeOrbs();
   });
   const end=e=>{
     if(!o.drag)return;o.drag=false;el.classList.remove('grab');
     try{el.releasePointerCapture(e.pointerId)}catch(_){}
-    if(o.moved<6){ /* tap = squish + ripple */
+    if(o.moved<6){
       o.sc=.82;o.vs=.05;o.vx=0;o.vy=0;
       if(!reduce){const r=document.createElement('i');r.className='rip';el.appendChild(r);setTimeout(()=>r.remove(),750)}
     }
+    wakeOrbs();
   };
   el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
 });
+
 function tick(){
-  requestAnimationFrame(tick);
-  if(document.hidden||!document.getElementById('s0').classList.contains('show'))return;
+  const s0=document.getElementById('s0');
+  if(document.hidden||!s0||!s0.classList.contains('show')||document.body.dataset.page!=='0'){
+    ticking=false;
+    return;
+  }
+  let settled=true;
   for(const o of S){
     if(!o.drag){
-      /* spring home */
       o.vx+=-o.x*.045;o.vy+=-o.y*.045;
-      /* gentle cursor repel (mouse only) */
-      if(ptr.on&&!reduce){
+      if(ptr.on&&!reduce&&!isMobile){
         const r=o.el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=cx-ptr.x,dy=cy-ptr.y,d=Math.hypot(dx,dy)+.01,R=r.width*.9+50;
         if(d<R){const f=(1-d/R)*1.6;o.vx+=dx/d*f;o.vy+=dy/d*f}
       }
       o.vx*=.86;o.vy*=.86;o.x+=o.vx;o.y+=o.vy;
       o.vs+=(1-o.sc)*.2;o.vs*=.78;o.sc+=o.vs;
+      if(Math.abs(o.x)>0.05 || Math.abs(o.y)>0.05 || Math.abs(o.vx)>0.02 || Math.abs(o.vy)>0.02 || Math.abs(1-o.sc)>0.005){
+        settled=false;
+      } else {
+        o.x=0;o.y=0;o.vx=0;o.vy=0;o.sc=1;o.vs=0;
+      }
+    } else {
+      settled=false;
     }
     o.el.style.translate=o.x.toFixed(2)+'px '+o.y.toFixed(2)+'px';
     o.el.style.scale=o.sc.toFixed(3);
   }
+  if(settled && !ptr.on){
+    ticking=false;
+    return;
+  }
+  requestAnimationFrame(tick);
 }
-requestAnimationFrame(tick);
+wakeOrbs();
 })();
 </script>
 
