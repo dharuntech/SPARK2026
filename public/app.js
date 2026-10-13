@@ -623,7 +623,7 @@ async function updatePass(){try{if(!passes.length)await loadPasses()}catch(err){
 function renderPassChips(){const box=$('passSwitcher');if(!box)return;box.innerHTML=passes.length>1?passes.map((p,i)=>'<button class="mini'+(i===passIndex?' primary':'')+'" data-pass="'+i+'">'+esc(p.event.name)+'</button>').join(''):'';box.classList.toggle('hidden',passes.length<2)}
 function renderPass(){const ids=['passEvent','passId','passName','passReg','passCategory','passVenue','passTime','passAttendance'],qr=$('qr'),p=passes[passIndex]||null;
 renderPassChips();
-if(!p){ids.forEach(id=>$(id).textContent=id==='passEvent'?'No registration yet':'—');$('passStatus').textContent='NO PASS';$('passHint').innerHTML='Register for an event to receive a genuine, scannable QR pass — or restore an existing pass with your register number and email below.';qr.classList.remove('has-image');qr.innerHTML='';$('downloadQr').disabled=true;return}
+if(!p){ids.forEach(id=>$(id).textContent=id==='passEvent'?'No registration yet':'—');$('passStatus').textContent='NO PASS';$('passHint').innerHTML='Register for an event to receive a genuine, scannable QR pass — or restore an existing pass with your register number and email below.';qr.classList.remove('has-image');qr.innerHTML='';$('downloadQr').disabled=true;if($('downloadPdf'))$('downloadPdf').disabled=true;return}
 $('passEvent').textContent=p.event.name;$('passId').textContent=p.registrationId;$('passName').textContent=p.student.name;$('passReg').textContent=p.student.registerNumber;
 $('passCategory').textContent=p.event.categoryLabel;$('passVenue').textContent=p.event.venue;$('passTime').textContent=p.event.dateLabel+' · '+p.event.timeLabel;
 $('passAttendance').textContent=p.attendanceVerified?('PRESENT · '+p.checkedInAtLabel):p.attendanceStatus;
@@ -631,9 +631,201 @@ $('passStatus').textContent=p.attendanceVerified?'ATTENDANCE VERIFIED':'QR READY
 $('passHint').innerHTML='Registered '+esc(p.createdAtLabel)+' IST · '+esc(p.sourceLabel)+'<br>'+esc(p.student.department)+' · Year '+esc(p.student.academicYear)+' · Section '+esc(p.student.section)+(p.attendanceVerified?'<br>Checked in: '+esc(p.checkedInAtLabel):'');
 qr.classList.add('has-image');
 qr.innerHTML='<img alt="QR pass '+esc(p.registrationId)+'" src="'+p.qr.svgDataUrl+'">';
-$('downloadQr').disabled=false}
+$('downloadQr').disabled=false;if($('downloadPdf'))$('downloadPdf').disabled=false}
+function downloadPassPdf(p){
+  if(!p)return;
+  if(!window.jspdf||!window.jspdf.jsPDF){
+    toast('PDF engine loading','Please wait a moment and try again.');
+    return;
+  }
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const pw=210,mx=18,cw=pw-(mx*2);
+  let y=18;
+
+  // Outer pass card border
+  doc.setDrawColor(218,225,233);
+  doc.setLineWidth(0.6);
+  doc.setFillColor(255,255,255);
+  doc.roundedRect(mx,y,cw,220,5,5,'FD');
+
+  // Header background
+  doc.setFillColor(20,24,54);
+  doc.roundedRect(mx,y,cw,34,5,5,'F');
+  doc.rect(mx,y+25,cw,9,'F');
+
+  // Accent gradient line
+  doc.setFillColor(99,102,241);
+  doc.rect(mx,y+33,cw,1.5,'F');
+
+  // Header text
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(16);
+  doc.text("SPARK'26",mx+10,y+13);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(199,210,254);
+  doc.text('NATIONAL LEVEL TECHNICAL SYMPOSIUM · CSE',mx+10,y+19);
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9);
+  doc.setTextColor(34,211,238);
+  doc.text('OFFICIAL EVENT ENTRY PASS',mx+cw-10,y+13,{align:'right'});
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8);
+  doc.setTextColor(224,231,255);
+  doc.text('ID: '+p.registrationId,mx+cw-10,y+19,{align:'right'});
+
+  // Event Banner
+  y+=42;
+  doc.setFillColor(243,246,253);
+  doc.roundedRect(mx+8,y,cw-16,20,3,3,'F');
+  doc.setDrawColor(224,231,255);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(mx+8,y,cw-16,20,3,3,'S');
+
+  doc.setTextColor(30,41,59);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.text(p.event.name||'Event',mx+14,y+9);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(79,70,229);
+  doc.text(((p.event.categoryLabel||'TECHNICAL')+' EVENT').toUpperCase(),mx+14,y+15);
+
+  // Status Badge
+  doc.setFillColor(209,250,229);
+  doc.setDrawColor(16,185,129);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(mx+cw-58,y+5.5,46,9,2,2,'FD');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7);
+  doc.setTextColor(5,150,105);
+  doc.text('CONFIRMED PASS',mx+cw-35,y+11.5,{align:'center'});
+
+  // Two columns: Left (Student & Event Details), Right (QR Code)
+  y+=28;
+  const colW=(cw-24)*0.62;
+  const qrColX=mx+12+colW;
+  const qrColW=(cw-24)*0.38;
+
+  // Student Section Heading
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(71,85,105);
+  doc.text('PARTICIPANT DETAILS',mx+12,y);
+
+  doc.setDrawColor(226,232,240);
+  doc.setLineWidth(0.4);
+  doc.line(mx+12,y+2,mx+12+colW-6,y+2);
+
+  const drawRow=(label,val,rowY)=>{
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100,116,139);
+    doc.text(label.toUpperCase(),mx+12,rowY);
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15,23,42);
+    doc.text(String(val||'—'),mx+46,rowY);
+  };
+
+  let ry=y+9;
+  drawRow('Student Name',p.student.name,ry); ry+=8;
+  drawRow('Register No.',p.student.registerNumber,ry); ry+=8;
+  drawRow('Department',p.student.department,ry); ry+=8;
+  drawRow('Year & Sec','Year '+p.student.academicYear+' · Section '+(p.student.section||'—'),ry); ry+=8;
+  drawRow('Email',p.student.email,ry); ry+=8;
+  drawRow('Reg. ID',p.registrationId,ry); ry+=12;
+
+  // Event Details Heading
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(71,85,105);
+  doc.text('EVENT SCHEDULE & VENUE',mx+12,ry);
+
+  doc.line(mx+12,ry+2,mx+12+colW-6,ry+2);
+  ry+=9;
+
+  drawRow('Event Date',p.event.dateLabel,ry); ry+=8;
+  drawRow('Event Time',p.event.timeLabel,ry); ry+=8;
+  drawRow('Event Venue',p.event.venue,ry);
+
+  // Right Column: QR Box
+  doc.setFillColor(248,250,252);
+  doc.setDrawColor(203,213,225);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(qrColX,y-2,qrColW,88,3,3,'FD');
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setTextColor(71,85,105);
+  doc.text('ENTRY CHECK-IN QR',qrColX+qrColW/2,y+5,{align:'center'});
+
+  // Scannable QR Code Image
+  const qrSize=46;
+  const qrx=qrColX+(qrColW-qrSize)/2;
+  const qry=y+9;
+  if(p.qr&&p.qr.pngDataUrl){
+    doc.addImage(p.qr.pngDataUrl,'PNG',qrx,qry,qrSize,qrSize);
+  }
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(30,41,59);
+  doc.text(p.registrationId,qrColX+qrColW/2,qry+qrSize+6,{align:'center'});
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(100,116,139);
+  doc.text('Scan with symposium scanner',qrColX+qrColW/2,qry+qrSize+11,{align:'center'});
+  doc.text('at venue entrance',qrColX+qrColW/2,qry+qrSize+15,{align:'center'});
+
+  // Divider line before instructions
+  y=ry+16;
+  doc.setDrawColor(226,232,240);
+  doc.setLineWidth(0.4);
+  doc.line(mx+8,y,mx+cw-8,y);
+
+  // Instructions & Guidelines
+  y+=7;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setTextColor(71,85,105);
+  doc.text('IMPORTANT GUIDELINES FOR ATTENDEES:',mx+10,y);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7);
+  doc.setTextColor(100,116,139);
+  const instructions=[
+    '1. Carry this printed pass or show the QR code directly on your mobile device at the registration desk / hall entry.',
+    '2. This pass is strictly non-transferable and valid solely for the participant registered under ID '+p.registrationId+'.',
+    '3. Attendees must produce their official College Identity Card upon request during check-in.',
+    "4. For any queries or assistance, contact the SPARK'26 symposium help desk or event coordinators."
+  ];
+  instructions.forEach((ins,idx)=>{
+    doc.text(ins,mx+10,y+5+idx*4.5);
+  });
+
+  // Footer inside card
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(6.5);
+  doc.setTextColor(148,163,184);
+  doc.text("SPARK'26 TECHNICAL SYMPOSIUM · AUTOMATED DIGITAL PASS SYSTEM",mx+cw/2,232,{align:'center'});
+
+  const filename='SPARK26_EventPass_'+p.registrationId+'.pdf';
+  const blob=doc.output('blob');
+  downloadBlob(blob,filename);
+  toast('Pass downloaded',filename);
+}
 $('refreshPass').onclick=async()=>{passes=[];await updatePass();toast('Pass refreshed','Attendance status was re-checked with the server.')};
 $('downloadQr').onclick=()=>{const p=passes[passIndex];if(!p)return;const a=document.createElement('a');a.href=p.qr.pngDataUrl;a.download='Spark26_Pass_'+p.registrationId+'.png';document.body.appendChild(a);a.click();a.remove()};
+if($('downloadPdf'))$('downloadPdf').onclick=()=>{const p=passes[passIndex];if(!p)return;downloadPassPdf(p)};
 $('passSwitcher').addEventListener('click',e=>{const b=e.target.closest('[data-pass]');if(!b)return;passIndex=+b.dataset.pass;renderPass()});
 $('passLookupForm').addEventListener('submit',async e=>{
 e.preventDefault();
