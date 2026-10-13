@@ -25,7 +25,7 @@ return data}
 function rememberPass(p){if(!p||!p.qr||!p.qr.token)return;const list=store.get(LS_TOKENS,[]).filter(t=>t!==p.qr.token);list.unshift(p.qr.token);store.set(LS_TOKENS,list.slice(0,20))}
 function trackPass(p){passes=[p,...passes.filter(x=>x.registrationId!==p.registrationId)];passIndex=0;rememberPass(p)}
 function prefillStudent(){const s=store.get(LS_STUDENT,null);if(!s)return;if(!$('rName').value)$('rName').value=s.name||'';if(!$('rRegno').value)$('rRegno').value=s.registerNumber||'';if(!$('rDept').value)$('rDept').value=s.department||'';if(!$('rYear').value&&s.academicYear&&['I','II','III','IV'].includes(s.academicYear))$('rYear').value=s.academicYear;if(!$('rSection').value)$('rSection').value=s.section||'';if(!$('rEmail').value)$('rEmail').value=s.email||'';if($('rPhone')&&!$('rPhone').value)$('rPhone').value=s.phone||''}
-function downloadBlob(blob,filename){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+function downloadBlob(blob,filename){if(typeof window!=='undefined'&&window.__onDownloadBlob)try{window.__onDownloadBlob(blob,filename)}catch(_){}const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 async function downloadFile(url,fallbackName){const res=await api(url,{download:true});const cd=res.headers.get('Content-Disposition')||'';const m=/filename="?([^";]+)"?/.exec(cd);const blob=await res.blob();const name=m?m[1]:fallbackName;downloadBlob(blob,name);return name}
 const sections=[0,1,2,3,4,5].map(i=>$('s'+i));
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}function save(){/* PostgreSQL is authoritative — nothing is mirrored in this browser */}function toast(title,msg){const t=$('toast');t.innerHTML='<strong>'+esc(title)+'</strong>'+esc(msg);t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),3600)}
@@ -64,7 +64,7 @@ if(isMobile){
 }
 if(i===0){window.__resumePrism&&window.__resumePrism();window.__wakeOrbs&&window.__wakeOrbs()}
 }
-document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>{if(currentSection===0){window.location.reload()}else{go(0)}});document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){if(currentSection===0)window.location.reload();else go(0)}});$('heroEvents')?.addEventListener('click',()=>go(1));const nr=$('navReg');if(nr)nr.onclick=()=>{if(selectedId&&eventById(selectedId)){updateSelected();go(2)}else if(events&&events.length){selectEvent(events[0]);go(2)}else{go(2)}};window.sparkGo=go;window.sparkSelectEvent=selectEvent;window.sparkEvents=()=>events;
+document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>{if(currentSection===0){window.location.reload()}else{go(0)}});document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){if(currentSection===0)window.location.reload();else go(0)}});$('heroEvents')?.addEventListener('click',()=>go(1));const nr=$('navReg');if(nr)nr.onclick=()=>{if(selectedId&&eventById(selectedId)){updateSelected();go(2)}else if(events&&events.length){selectEvent(events[0]);go(2)}else{go(2)}};window.sparkGo=go;window.sparkSelectEvent=selectEvent;window.sparkEvents=()=>events;window.sparkPasses=()=>passes;
 (function(){
 const blocked = t => {
   if (!t) return false;
@@ -853,7 +853,25 @@ try{
   await loadEvents();
   go(3);renderPass();
   updateSelected();
-  showInfo('Registration confirmed','Your Spark’26 pass is ready','<div class="success">Registration ID <b>'+esc(data.pass.registrationId)+'</b> created for <b>'+esc(data.pass.event.name)+'</b>.<br>Show the QR pass at the venue for check-in.</div>');
+  const teamHtml = (data.pass.teamMembers && data.pass.teamMembers.length)
+    ? '<div style="margin-top:8px;font-size:12px;color:var(--ink)"><strong>Team (' + (data.pass.teamMembers.length + 1) + '):</strong> ' +
+      esc(data.pass.student.name) + ' (Lead), ' +
+      esc(data.pass.teamMembers.map(m => m.name + ' (' + m.registerNumber + ')').join(', ')) + '</div>'
+    : '';
+  showInfo(
+    'Registration confirmed',
+    'Your Spark’26 pass is ready',
+    '<div class="success">Registration ID <b>' + esc(data.pass.registrationId) + '</b> created for <b>' + esc(data.pass.event.name) + '</b>.' +
+    teamHtml +
+    '<br><span style="display:inline-block;margin-top:6px">Show the QR pass at the venue for check-in.</span></div>' +
+    '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="cta" type="button" id="modalDownloadPdf" style="padding:9px 18px;font-size:12px;border-radius:10px">📄 Download Event Pass (PDF)</button>' +
+    '</div>'
+  );
+  setTimeout(() => {
+    const b = $('modalDownloadPdf');
+    if (b) b.onclick = () => downloadPassPdf(data.pass);
+  }, 50);
   toast('Registration confirmed',data.pass.event.name+' · '+data.pass.registrationId);
 }catch(ex){
   err.textContent=ex.message||'Registration failed.';
@@ -921,11 +939,14 @@ function downloadPassPdf(p){
   const pw=210,mx=18,cw=pw-(mx*2);
   let y=18;
 
+  const hasTeam = Boolean(p.teamMembers && p.teamMembers.length);
+  const cardH = hasTeam ? Math.min(252, 222 + (p.teamMembers.length * 6)) : 220;
+
   // Outer pass card border
   doc.setDrawColor(218,225,233);
   doc.setLineWidth(0.6);
   doc.setFillColor(255,255,255);
-  doc.roundedRect(mx,y,cw,220,5,5,'FD');
+  doc.roundedRect(mx,y,cw,cardH,5,5,'FD');
 
   // Header background
   doc.setFillColor(20,24,54);
@@ -995,7 +1016,7 @@ function downloadPassPdf(p){
   doc.setFont('helvetica','bold');
   doc.setFontSize(9.5);
   doc.setTextColor(71,85,105);
-  doc.text('PARTICIPANT DETAILS',mx+12,y);
+  doc.text(hasTeam?'TEAM LEADER DETAILS':'PARTICIPANT DETAILS',mx+12,y);
 
   doc.setDrawColor(226,232,240);
   doc.setLineWidth(0.4);
@@ -1014,7 +1035,7 @@ function downloadPassPdf(p){
   };
 
   let ry=y+9;
-  drawRow('Student Name',p.student.name,ry); ry+=8;
+  drawRow(hasTeam?'Leader Name':'Student Name',p.student.name,ry); ry+=8;
   drawRow('Register No.',p.student.registerNumber,ry); ry+=8;
   drawRow('Department',p.student.department,ry); ry+=8;
   drawRow('Year & Sec','Year '+p.student.academicYear+' · Section '+(p.student.section||'—'),ry); ry+=8;
@@ -1071,27 +1092,83 @@ function downloadPassPdf(p){
   doc.line(mx+8,y,mx+cw-8,y);
 
   // Important Guidelines & Team Members
-  y+=7;
-  if (p.teamMembers && p.teamMembers.length) {
+  y+=6;
+  if (hasTeam) {
+    const totalTeam = p.teamMembers.length + 1;
     doc.setFont('helvetica','bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     doc.setTextColor(30,41,59);
-    doc.text('REGISTERED TEAM MEMBERS ('+(p.teamMembers.length+1)+'):',mx+10,y);
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(7);
-    doc.setTextColor(71,85,105);
-    const mStr='Lead: '+p.student.name+' ('+p.student.registerNumber+') | Members: '+p.teamMembers.map(m=>m.name+' ('+m.registerNumber+')').join(', ');
-    doc.text(mStr,mx+10,y+4.5,{maxWidth:cw-20});
-    y+=10;
+    doc.text('REGISTERED TEAM MEMBERS (' + totalTeam + ' PARTICIPANTS):', mx + 10, y);
+    y += 2.5;
+
+    const teamRows = [
+      {
+        role: 'Team Leader',
+        name: p.student.name,
+        regno: p.student.registerNumber,
+        dept: (p.student.department || '—') + (p.student.academicYear ? ' · Yr ' + p.student.academicYear : '')
+      },
+      ...p.teamMembers.map((m, idx) => ({
+        role: 'Member ' + (idx + 2),
+        name: m.name || '—',
+        regno: m.registerNumber || '—',
+        dept: (m.department || '—') + (m.academicYear ? ' · Yr ' + m.academicYear : '')
+      }))
+    ];
+
+    const rowH = 5.2;
+    const tableH = 5 + (teamRows.length * rowH);
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(mx + 8, y, cw - 16, tableH, 2, 2, 'FD');
+
+    // Header strip
+    doc.setFillColor(241, 245, 249);
+    doc.rect(mx + 8.2, y + 0.2, cw - 16.4, 4.8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('MEMBER / ROLE', mx + 12, y + 3.4);
+    doc.text('STUDENT NAME', mx + 44, y + 3.4);
+    doc.text('REGISTER NO.', mx + 94, y + 3.4);
+    doc.text('DEPARTMENT & YEAR', mx + 132, y + 3.4);
+
+    teamRows.forEach((row, rIdx) => {
+      const rowY = y + 5 + (rIdx * rowH) + 3.7;
+      const isLead = row.role === 'Team Leader';
+      doc.setFont('helvetica', isLead ? 'bold' : 'normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(isLead ? 79 : 71, isLead ? 70 : 85, isLead ? 229 : 105);
+      doc.text(row.role, mx + 12, rowY);
+
+      doc.setFont('helvetica', isLead ? 'bold' : 'normal');
+      doc.setTextColor(30, 41, 59);
+      doc.text(String(row.name).slice(0, 26), mx + 44, rowY);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text(String(row.regno), mx + 94, rowY);
+      doc.text(String(row.dept), mx + 132, rowY);
+
+      if (rIdx < teamRows.length - 1) {
+        doc.setDrawColor(241, 245, 249);
+        doc.setLineWidth(0.2);
+        doc.line(mx + 10, y + 5 + ((rIdx + 1) * rowH), mx + cw - 10, y + 5 + ((rIdx + 1) * rowH));
+      }
+    });
+
+    y += tableH + 4;
   }
 
   doc.setFont('helvetica','bold');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(71,85,105);
   doc.text('IMPORTANT GUIDELINES FOR ATTENDEES:',mx+10,y);
 
   doc.setFont('helvetica','normal');
-  doc.setFontSize(7);
+  doc.setFontSize(6.5);
   doc.setTextColor(100,116,139);
   const instructions=[
     '1. Carry this printed pass or show the QR code directly on your mobile device at the registration desk / hall entry.',
@@ -1100,14 +1177,14 @@ function downloadPassPdf(p){
     "4. For any queries or assistance, contact the SPARK'26 event help desk or event coordinators."
   ];
   instructions.forEach((ins,idx)=>{
-    doc.text(ins,mx+10,y+5+idx*4.5);
+    doc.text(ins,mx+10,y+4.2+idx*3.8);
   });
 
   // Footer inside card
   doc.setFont('helvetica','bold');
   doc.setFontSize(6.5);
   doc.setTextColor(148,163,184);
-  doc.text("SPARK'26 TECHNICAL EVENTS · AUTOMATED DIGITAL PASS SYSTEM",mx+cw/2,232,{align:'center'});
+  doc.text("SPARK'26 TECHNICAL EVENTS · AUTOMATED DIGITAL PASS SYSTEM",mx+cw/2,18+cardH-5.5,{align:'center'});
 
   const filename='SPARK26_EventPass_'+p.registrationId+'.pdf';
   const blob=doc.output('blob');
