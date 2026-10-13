@@ -23,14 +23,12 @@ function ist(dateStr, timeStr) {
 }
 
 const DEFAULT_EVENTS = [
-  { code: 'E01', name: 'Code Sprint', category: 'TECHNICAL', venue: 'CSE Lab 1', start: '10:00', end: '12:00', mode: 'WEBSITE', desc: 'Fast-paced coding round covering logic, debugging and problem solving.' },
-  { code: 'E02', name: 'Treasure Hunt', category: 'NON_TECHNICAL', venue: 'Main Block Courtyard', start: '11:30', end: '13:00', mode: 'BOTH', desc: 'Clues, campus checkpoints and team challenges with a CS twist.' },
-  { code: 'E03', name: 'UI / UX Forge', category: 'TECHNICAL', venue: 'Innovation Studio', start: '13:30', end: '15:00', mode: 'WEBSITE', desc: 'Design a high-impact interface from a surprise problem statement.' },
-  { code: 'E04', name: 'Debug the Bug', category: 'TECHNICAL', venue: 'Seminar Hall B', start: '14:00', end: '15:00', mode: 'WEBSITE', desc: 'Find, reason about and fix intentionally broken programs.' },
-  { code: 'E05', name: 'Tech Quiz', category: 'TECHNICAL', venue: 'AV Room', start: '15:30', end: '16:30', mode: 'BOTH', desc: 'Computer science, programming and emerging-tech quiz for teams.' },
-  { code: 'E06', name: 'IPL Auction Arena', category: 'NON_TECHNICAL', venue: 'Open Auditorium', start: '16:00', end: '17:30', mode: 'ON_SPOT', desc: 'Strategy, bidding and team-building in a live auction format.' },
-  { code: 'E07', name: 'Paper Presentation', category: 'TECHNICAL', venue: 'Seminar Hall A', start: '09:30', end: '12:30', mode: 'WEBSITE', desc: 'Present research, systems, AI ideas or impactful technical builds.' },
-  { code: 'E08', name: 'Meme Matrix', category: 'NON_TECHNICAL', venue: 'Student Activity Zone', start: '13:00', end: '14:00', mode: 'ON_SPOT', desc: 'Create the smartest CS-themed meme with the biggest crowd reaction.' },
+  { code: 'E04', name: 'IPL AUCTION', category: 'NON_TECHNICAL', venue: '322', start: '10:00', end: '13:00', mode: 'BOTH', desc: '🏏 IPL AUCTION – SPARK 2026\n\nBuild your dream IPL team! 🔥 Bid for your favourite players, manage your budget, and compete with other teams to create the ultimate cricket squad. Let the bidding battle begin! 💰🏆' },
+  { code: 'E03', name: 'Capture The Flag', category: 'TECHNICAL', venue: 'SHIVA AYUADURAI LAB', start: '10:00', end: '12:00', mode: 'WEBSITE', desc: 'Capture The Flag (CTF) is a technical challenge where participants must use their problem-solving and cybersecurity skills to find a hidden flag placed in a folder somewhere on a computer. The participant who discovers the flag first and submits it correctly wins the challenge.' },
+  { code: 'E05', name: 'Creovate', category: 'TECHNICAL', venue: 'DENNIS RICHIE LAB(Right)', start: '10:00', end: '12:00', mode: 'WEBSITE', desc: 'Creovate: Technical innovation, design thinking, and rapid prototyping competition.' },
+  { code: 'E06', name: 'AuRagen', category: 'TECHNICAL', venue: 'DENNIS RICHIE LAB(Left)', start: '10:00', end: '12:00', mode: 'WEBSITE', desc: 'AuRagen: Advanced generative AI, machine learning and intelligent system building.' },
+  { code: 'E07', name: 'Project expo', category: 'TECHNICAL', venue: 'IOT LAB', start: '10:00', end: '13:00', mode: 'WEBSITE', desc: 'Project Expo: Showcase your groundbreaking hardware, IoT, and software projects to expert panels.' },
+  { code: 'E02', name: 'NeuraForge', category: 'TECHNICAL', venue: 'IBM LAB', start: '11:30', end: '13:00', mode: 'WEBSITE', desc: 'NeuraForge: Neural network architectures, deep learning engineering, and algorithmic mastery.' },
 ];
 
 const slugify = (v) => String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');

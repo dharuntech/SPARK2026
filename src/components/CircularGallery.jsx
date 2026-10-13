@@ -227,25 +227,25 @@ const link = gl => {
 
 const CircularGallery = ({
   items,
-  bend = 3,
+  bend = 0,
   textColor = '#ffffff',
   borderRadius = 0.05,
   font = DEFAULT_FONT,
   fontUrl,
   scrollSpeed = 2,
-  scrollEase = 0.05,
+  scrollEase = 0.06,
   itemSize = 1,
   itemAspect = 0.78,
-  gap = 0.26,
-  wave = 1,
+  gap = 0.12,
+  wave = 0,
   fadeEdges = 0.12,
   shadow = 0.25,
   grayscale = false,
   showTitles = true,
   snap = true,
   autoScroll = 0,
-  openOnClick = true,
-  intro = true,
+  openOnClick = false,
+  intro = false,
   onItemClick,
   onActiveChange,
   dpr,
@@ -377,7 +377,7 @@ const CircularGallery = ({
       velocity: 0,
       open: 0,
       openTarget: 0,
-      intro: settingsRef.current.intro && !reduce ? 0 : 1,
+      intro: 1,
       waveTime: 0,
       ring: 0,
       keyboard: false,
@@ -462,8 +462,8 @@ const CircularGallery = ({
 
     const captionSize = () => clamp(view.height * 0.045, 15, 22);
 
-    const ensurePool = spacing => {
-      const size = Math.ceil(view.width / Math.max(spacing, 1)) + 8;
+    const ensurePool = (spacing, count = 6) => {
+      const size = Math.max(count + 2, Math.ceil(view.width / Math.max(spacing, 1)) + 8);
       if (pool.length === size) return;
       labelLayer.replaceChildren();
       pool = Array.from({ length: size }, () => {
@@ -481,8 +481,12 @@ const CircularGallery = ({
       const count = list.length;
       const { w, h, spacing } = measure();
       state.spacing = spacing;
-      const introEase = 1 - Math.pow(1 - state.intro, 3);
-      const scroll = state.scroll + (1 - introEase) * spacing * 1.6;
+      const maxTarget = Math.max(0, (count - 1) * spacing);
+      if (!state.drag) {
+        state.target = clamp(state.target, 0, maxTarget);
+        state.scroll = clamp(state.scroll, 0, maxTarget);
+      }
+      const scroll = state.scroll;
       const margin = Math.max(20, Math.min(view.width, view.height) * 0.06);
       const baseLabel = h * 0.072 * fontScale(fontRef.current);
       const openFrame = item => {
@@ -492,38 +496,33 @@ const CircularGallery = ({
         const width = Math.min(view.width - margin * 2, (view.height - margin * 2 - captionSpace) * aspect);
         return { width, height: width / aspect, y: captionSpace / 2, titleSpace };
       };
-      const activeFrame = openFrame(list[wrap(state.active, count)]);
+      const activeFrame = openFrame(list[clamp(state.active, 0, count - 1)] || list[0]);
       const spread = Math.max(0, activeFrame.width / 2 - w / 2);
       const activeX = state.active * spacing - scroll;
-      const first = Math.floor((scroll - view.width / 2 - spacing * 2) / spacing);
-      const lastSlot = Math.ceil((scroll + view.width / 2 + spacing * 2) / spacing);
       const next = [];
       let lead = null;
-      for (let slot = first; slot <= lastSlot; slot++) {
-        const index = wrap(slot, count);
+      for (let slot = 0; slot < count; slot++) {
+        const index = slot;
         const item = list[index];
         const entry = textureFor(item.image);
         const focus = ease(state.focus.get(slot) || 0);
         let x = slot * spacing - scroll;
         x += Math.sign(x - activeX) * state.open * (1 - focus) * spread;
-        const arc = arcOf(x);
         const frame = focus > 0 ? openFrame(item) : activeFrame;
-        const order = Math.abs(slot * spacing - state.scroll) / spacing;
-        const shown = ease(clamp(state.intro * 2.2 - order * 0.22, 0, 1));
         const hover = state.hover.get(slot) || 0;
-        const lift = 1 + hover * 0.04 * (1 - focus);
+        const lift = 1 + hover * 0.02 * (1 - focus);
         const card = {
           slot,
           index,
           item,
           entry,
           x: mix(x, 0, focus),
-          y: mix(arc.y, frame.y, focus) - (1 - shown) * h * 0.18,
-          angle: arc.angle * (1 - focus),
+          y: mix(0, frame.y, focus),
+          angle: 0,
           w: mix(w, frame.width, focus) * lift,
           h: mix(h, frame.height, focus) * lift,
           radius: s.borderRadius * Math.min(w, h),
-          alpha: shown * mix(1, 0.12, state.open * (1 - focus)),
+          alpha: mix(1, 0.12, state.open * (1 - focus)),
           dim: state.open * (1 - focus) * 0.4,
           gray: s.grayscale ? 1 - Math.max(hover, focus, slot === state.active ? state.ring : 0) : 0,
           focus,
@@ -543,8 +542,7 @@ const CircularGallery = ({
     const draw = metrics => {
       const s = settingsRef.current;
       const ratio = view.ratio;
-      const speed = Math.min(Math.abs(state.velocity) / Math.max(metrics.spacing * 4, 1), 1);
-      const wavePx = reduce ? 0 : s.wave * speed * view.height * 0.08 * ratio;
+      const wavePx = 0;
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -567,9 +565,9 @@ const CircularGallery = ({
       const place = card => {
         gl.uniform2f(u.uCenter, card.x * ratio, card.y * ratio);
         gl.uniform2f(u.uSize, card.w * ratio, card.h * ratio);
-        gl.uniform1f(u.uAngle, card.angle);
+        gl.uniform1f(u.uAngle, 0.0);
         gl.uniform1f(u.uRadius, Math.min(card.radius, card.w / 2, card.h / 2) * ratio);
-        gl.uniform1f(u.uWave, wavePx * (1 - card.focus));
+        gl.uniform1f(u.uWave, 0.0);
         gl.uniform1f(u.uAlpha, card.alpha);
       };
       if (s.shadow > 0) {
@@ -600,7 +598,7 @@ const CircularGallery = ({
 
     const placeLabels = metrics => {
       const s = settingsRef.current;
-      ensurePool(metrics.spacing);
+      ensurePool(metrics.spacing, s.items.length);
       const used = new Set();
       const font = fontRef.current;
       const fade = value => {
@@ -611,7 +609,8 @@ const CircularGallery = ({
       if (s.showTitles) {
         cards.forEach(card => {
           if (!card.item.text) return;
-          const entry = pool[wrap(card.slot, pool.length)];
+          const entry = pool[card.slot];
+          if (!entry) return;
           used.add(entry);
           if (entry.slot !== card.slot || entry.text !== card.item.text) {
             entry.slot = card.slot;
@@ -624,14 +623,14 @@ const CircularGallery = ({
           }
           const size = card.labelSize;
           const offset = card.h / 2 + size * 1.1;
-          const x = card.x + Math.sin(card.angle) * offset;
-          const y = card.y - Math.cos(card.angle) * offset;
+          const x = card.x;
+          const y = card.y - offset;
           const cssX = view.width / 2 + x;
           const cssY = view.height / 2 - y;
           const edge = fade(cssX / view.width) * fade(1 - cssX / view.width);
           entry.el.style.fontSize = `${size}px`;
           entry.el.style.color = s.textColor;
-          entry.el.style.transform = `translate(${cssX}px, ${cssY}px) translate(-50%, -50%) rotate(${-card.angle}rad)`;
+          entry.el.style.transform = `translate(${cssX}px, ${cssY}px) translate(-50%, -50%) rotate(0deg) skew(0deg)`;
           entry.el.style.opacity = String(card.alpha * card.labelAlpha * mix(edge, 1, card.focus));
         });
       }
@@ -651,16 +650,20 @@ const CircularGallery = ({
       caption.style.fontSize = `${captionSize() * 0.8}px`;
     };
 
-    const nearest = () => Math.round(state.target / Math.max(state.spacing, 1));
+    const nearest = () => {
+      const count = Math.max(1, settingsRef.current.items.length);
+      return clamp(Math.round(state.target / Math.max(state.spacing, 1)), 0, count - 1);
+    };
 
     const setSlot = (slot, announce = true) => {
       const s = settingsRef.current;
-      state.target = slot * state.spacing;
-      if (slot !== state.active) {
-        state.active = slot;
-        const index = wrap(slot, s.items.length);
-        if (announce) setActive(index);
-        s.onActiveChange?.(index);
+      const count = Math.max(1, s.items.length);
+      const boundedSlot = clamp(slot, 0, count - 1);
+      state.target = boundedSlot * state.spacing;
+      if (boundedSlot !== state.active) {
+        state.active = boundedSlot;
+        if (announce) setActive(boundedSlot);
+        s.onActiveChange?.(boundedSlot);
       }
       wake();
     };
@@ -689,6 +692,8 @@ const CircularGallery = ({
         prune(s.items);
         s.items.forEach(item => textureFor(item.image));
       }
+      const count = Math.max(1, s.items.length);
+      const maxTarget = Math.max(0, (count - 1) * state.spacing);
       const idle = now - state.lastInput > 1800;
       const auto =
         s.autoScroll &&
@@ -698,11 +703,17 @@ const CircularGallery = ({
         state.hovered === null &&
         !state.keyboard &&
         idle;
-      if (auto) state.target += s.autoScroll * state.spacing * 0.25 * dt;
+      if (auto) state.target = clamp(state.target + s.autoScroll * state.spacing * 0.25 * dt, 0, maxTarget);
+      if (!state.drag) {
+        state.target = clamp(state.target, 0, maxTarget);
+      }
       const follow = reduce ? 1 : 1 - Math.pow(1 - s.scrollEase, dt * 60);
       const before = state.scroll;
       state.scroll += (state.target - state.scroll) * follow;
       if (Math.abs(state.target - state.scroll) < 0.05) state.scroll = state.target;
+      if (!state.drag) {
+        state.scroll = clamp(state.scroll, 0, maxTarget);
+      }
       const velocity = (state.scroll - before) / dt;
       state.velocity += (velocity - state.velocity) * (1 - Math.exp(-dt / 0.08));
       if (Math.abs(state.velocity) < 0.5) state.velocity = 0;
@@ -742,12 +753,11 @@ const CircularGallery = ({
         entry.ready = reduce ? 1 : Math.min(1, entry.ready + dt / 0.45);
         settling = true;
       });
-      const slot = auto ? Math.round(state.scroll / Math.max(state.spacing, 1)) : nearest();
+      const slot = nearest();
       if (slot !== state.active && !state.drag) {
         state.active = slot;
-        const index = wrap(slot, s.items.length);
-        setActive(index);
-        s.onActiveChange?.(index);
+        setActive(slot);
+        s.onActiveChange?.(slot);
       }
       const metrics = layout();
       draw(metrics);
@@ -782,6 +792,10 @@ const CircularGallery = ({
         state.target = (state.target / before) * spacing;
       }
       state.spacing = spacing;
+      const count = Math.max(1, s.items.length);
+      const maxTarget = Math.max(0, (count - 1) * state.spacing);
+      state.target = clamp(state.target, 0, maxTarget);
+      state.scroll = clamp(state.scroll, 0, maxTarget);
       wake();
     };
 
@@ -862,7 +876,10 @@ const CircularGallery = ({
           setPointer(null);
         }
         if (drag.moved) {
-          state.target = drag.start - dx * (settingsRef.current.scrollSpeed / 2);
+          const count = Math.max(1, settingsRef.current.items.length);
+          const maxTarget = Math.max(0, (count - 1) * state.spacing);
+          const rawTarget = drag.start - dx * (settingsRef.current.scrollSpeed / 2);
+          state.target = clamp(rawTarget, 0, maxTarget);
           drag.samples.push({ x: event.clientX, t: performance.now() });
           if (drag.samples.length > 6) drag.samples.shift();
           state.lastInput = performance.now();
@@ -880,6 +897,8 @@ const CircularGallery = ({
       container.removeAttribute('data-dragging');
       if (container.hasPointerCapture?.(event.pointerId)) container.releasePointerCapture(event.pointerId);
       if (drag.moved) {
+        const count = Math.max(1, settingsRef.current.items.length);
+        const maxTarget = Math.max(0, (count - 1) * state.spacing);
         const samples = drag.samples;
         if (samples.length > 1) {
           const a = samples[0];
@@ -888,6 +907,7 @@ const CircularGallery = ({
           const speed = ((b.x - a.x) / span) * 1000;
           state.target -= speed * 0.18 * (settingsRef.current.scrollSpeed / 2);
         }
+        state.target = clamp(state.target, 0, maxTarget);
         snapNow();
         return;
       }
@@ -924,7 +944,9 @@ const CircularGallery = ({
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
       if (!delta) return;
       event.preventDefault();
-      state.target += delta * unit * (settingsRef.current.scrollSpeed / 2);
+      const count = Math.max(1, settingsRef.current.items.length);
+      const maxTarget = Math.max(0, (count - 1) * state.spacing);
+      state.target = clamp(state.target + delta * unit * (settingsRef.current.scrollSpeed / 2), 0, maxTarget);
       state.lastInput = performance.now();
       clearTimeout(snapTimer);
       snapTimer = setTimeout(snapNow, 140);
@@ -933,20 +955,25 @@ const CircularGallery = ({
 
     const onKeyDown = event => {
       const s = settingsRef.current;
+      const count = Math.max(1, s.items.length);
       const step = STEPS[event.key];
       state.lastInput = performance.now();
       if (step) {
         event.preventDefault();
         if (container.contains(document.activeElement) && document.activeElement !== container) state.keyboard = true;
-        setSlot(nearest() + step);
-        const index = wrap(state.active, s.items.length);
-        if (container.contains(document.activeElement)) buttonsRef.current[index]?.focus({ preventScroll: true });
+        const nextSlot = clamp(nearest() + step, 0, count - 1);
+        setSlot(nextSlot);
+        if (container.contains(document.activeElement)) buttonsRef.current[nextSlot]?.focus({ preventScroll: true });
         return;
       }
-      if (event.key === 'Home' || event.key === 'End') {
+      if (event.key === 'Home') {
         event.preventDefault();
-        const base = nearest() - wrap(nearest(), s.items.length);
-        setSlot(event.key === 'Home' ? base : base + s.items.length - 1);
+        setSlot(0);
+        return;
+      }
+      if (event.key === 'End') {
+        event.preventDefault();
+        setSlot(count - 1);
         return;
       }
       if (event.key === 'Escape' && state.openTarget > 0) {
@@ -1007,12 +1034,8 @@ const CircularGallery = ({
     resize();
 
     const slotFor = index => {
-      const count = settingsRef.current.items.length;
-      const slot = nearest();
-      const base = slot - wrap(slot, count) + index;
-      return [base - count, base, base + count].reduce((best, value) =>
-        Math.abs(value - slot) < Math.abs(best - slot) ? value : best
-      );
+      const count = Math.max(1, settingsRef.current.items.length);
+      return clamp(index, 0, count - 1);
     };
 
     engineRef.current = {

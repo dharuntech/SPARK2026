@@ -221,10 +221,12 @@ try{
   history.replaceState({section:isNaN(initSec)?0:initSec},'',location.hash||'#s0');
 }catch(err){}
 
-/* subtle 3D tilt on event cards (mouse only) */
-const grid=$('eventGrid');let cur=null;const reset=c=>{if(!c)return;c.style.setProperty('--rx','0deg');c.style.setProperty('--ry','0deg');c.classList.remove('tilting')};
-grid.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||matchMedia('(prefers-reduced-motion:reduce)').matches)return;const c=e.target.closest('.card');if(c!==cur){reset(cur);cur=c}if(!c)return;const r=c.getBoundingClientRect(),px=(e.clientX-r.left)/r.width,py=(e.clientY-r.top)/r.height;c.style.setProperty('--ry',((px-.5)*9).toFixed(2)+'deg');c.style.setProperty('--rx',((.5-py)*7).toFixed(2)+'deg');c.style.setProperty('--mx',(px*100)+'%');c.style.setProperty('--my',(py*100)+'%');c.classList.add('tilting')});
-grid.addEventListener('pointerleave',()=>{reset(cur);cur=null});
+/* upright event cards - tilt and skew removed */
+const grid=$('eventGrid');
+if(grid){
+  grid.style.setProperty('--rx','0deg');
+  grid.style.setProperty('--ry','0deg');
+}
 document.querySelectorAll('.pager button').forEach(b=>b.addEventListener('click',()=>go(+b.dataset.section)));
 })();
 function eventById(id){return events.find(e=>e.id===id||e.code===id)||null}
@@ -522,7 +524,12 @@ function updateCircularGallery(){
   if(!events || !events.length) return;
 
   const filtered = activeFilter === 'ALL' ? events : events.filter(e => e.category === activeFilter);
-  const listToDisplay = filtered.length ? filtered : events;
+  let listToDisplay = filtered.length ? [...filtered] : [...events];
+  const iplIdx = listToDisplay.findIndex(e => (e.name||'').toLowerCase().includes('ipl') || e.code === 'E04');
+  if (iplIdx > 0) {
+    const [ipl] = listToDisplay.splice(iplIdx, 1);
+    listToDisplay.unshift(ipl);
+  }
 
   let refreshScheduled = false;
   const onPosterReady = () => {
@@ -576,7 +583,29 @@ return '<article class="card" data-event="'+esc(e.id)+'">'+cardMedia(e)+'<div cl
 if($('countEvents'))$('countEvents').textContent=String(events.length).padStart(2,'0');
 if($('countTechnical'))$('countTechnical').textContent=String(events.filter(e=>e.category==='TECHNICAL').length).padStart(2,'0');
 if($('countRegs'))$('countRegs').textContent=String(events.reduce((a,e)=>a+(e.registeredCount||0),0)).padStart(2,'0');updateCircularGallery()}
-async function loadEvents(){loadState='loading';renderEvents();try{const d=await api('/api/events');events=d.events||[];loadState='ready'}catch(err){loadState='error';events=[];toast('Events unavailable',err.message)}renderEvents();if(selectedId&&!eventById(selectedId))selectedId='';if(!selectedId&&events.length)selectedId=events[0].id;updateSelected()}
+async function loadEvents(){
+  loadState='loading';
+  renderEvents();
+  try{
+    const d=await api('/api/events');
+    const list=d.events||[];
+    const iplIdx=list.findIndex(e=>(e.name||'').toLowerCase().includes('ipl')||e.code==='E04');
+    if(iplIdx>0){
+      const [ipl]=list.splice(iplIdx,1);
+      list.unshift(ipl);
+    }
+    events=list;
+    loadState='ready';
+  }catch(err){
+    loadState='error';
+    events=[];
+    toast('Events unavailable',err.message);
+  }
+  renderEvents();
+  if(selectedId&&!eventById(selectedId))selectedId='';
+  if(!selectedId&&events.length)selectedId=events[0].id;
+  updateSelected();
+}
 document.querySelectorAll('.filter[data-filter]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.filter[data-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');activeFilter=b.dataset.filter;renderEvents()}));
 if($('eventSearch'))$('eventSearch').addEventListener('input',renderEvents);
 $('eventGrid').addEventListener('click',e=>{const r=e.target.closest('[data-reg]'),d=e.target.closest('[data-info]');
