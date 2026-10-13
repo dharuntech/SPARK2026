@@ -22,10 +22,12 @@ const memberSchema = z.object({
   academicYear: z.string().trim().max(20).optional().or(z.literal('')),
   section: z.string().trim().max(10).optional().or(z.literal('')),
   email: z.string().trim().max(160).optional().or(z.literal('')),
+  phone: z.string().trim().max(30).optional().or(z.literal('')),
 });
 
 const registerSchema = z.object({
   eventId: z.string().trim().min(1, 'Please choose an event'),
+  teamName: z.string().trim().max(120).optional().or(z.literal('')),
   name,
   registerNumber,
   department,

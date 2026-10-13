@@ -29,19 +29,21 @@ async function loadWorkbook(res) {
   return wb;
 }
 
-function parseSheetKeyValues(sheet) {
-  const rows = [];
-  sheet.eachRow((r, n) => {
-    rows.push({
-      line: n,
-      field: r.getCell(1).value != null ? String(r.getCell(1).value).trim() : '',
-      details: r.getCell(2).value != null ? String(r.getCell(2).value).trim() : '',
-    });
-  });
-  return rows;
-}
+const EXPECTED_BASE_11_HEADERS = [
+  'Event Name',
+  'Team Name',
+  'Team Leader Name',
+  'Register Number',
+  'Department',
+  'Year',
+  'Section',
+  'Email',
+  'Mobile Number',
+  'Registration ID',
+  'Attendance Status',
+];
 
-test('event workbook is a genuine .xlsx with exactly one worksheet and vertical team layout', async () => {
+test('Event Participants Excel export has column headers in Row 1 and one row per registration', async () => {
   const eventA = await makeEvent({ name: 'Workbook Alpha', category: 'TECHNICAL' });
   const eventB = await makeEvent({ name: 'Workbook Beta', category: 'NON_TECHNICAL' });
   const alice = studentFixture();
@@ -57,24 +59,48 @@ test('event workbook is a genuine .xlsx with exactly one worksheet and vertical 
   assert.equal(res.headers['x-export-rows'], '2');
 
   const wb = await loadWorkbook(res);
-  assert.equal(wb.worksheets.length, 1, 'must have exactly one worksheet');
-
+  assert.equal(wb.worksheets.length, 1);
   const sheet = wb.worksheets[0];
-  assert.equal(sheet.getRow(1).getCell(1).value, 'Field');
-  assert.equal(sheet.getRow(1).getCell(2).value, 'Details');
 
-  const rows = parseSheetKeyValues(sheet);
-  const eventNames = rows.filter((r) => r.field === 'Event Name').map((r) => r.details);
-  const leaderNames = rows.filter((r) => r.field === 'Team Leader Name').map((r) => r.details);
+  // 1. First row must contain column headers
+  const headers = sheet.getRow(1).values.slice(1).map(String);
+  for (const expected of EXPECTED_BASE_11_HEADERS) {
+    assert.ok(headers.includes(expected), `missing header: ${expected}`);
+  }
 
-  assert.equal(eventNames.length, 2);
-  assert.ok(eventNames.every((n) => n === 'Workbook Alpha'));
-  assert.deepEqual(leaderNames.sort(), [alice.name, bob.name].sort());
+  // 2. Formatting requirements: frozen row 1, auto-filter, bold white text on dark header
+  assert.equal(sheet.views[0].state, 'frozen');
+  assert.equal(sheet.views[0].ySplit, 1);
+  assert.ok(sheet.autoFilter, 'Excel autoFilter missing on headers');
+  assert.equal(sheet.getRow(1).getCell(1).font.bold, true);
+  assert.equal(sheet.getRow(1).getCell(1).font.color.argb, 'FFFFFFFF');
 
-  // Check solo team members note
-  const teamMemberRows = rows.filter((r) => r.field === 'TEAM MEMBERS');
-  assert.equal(teamMemberRows.length, 2);
-  assert.ok(teamMemberRows.every((r) => r.details === 'No additional team members'));
+  // 3. Every subsequent row represents exactly one registration
+  // Total rows: 1 header row + 2 data rows = 3 rows
+  assert.equal(sheet.rowCount, 3, 'unexpected row count: must be header + 2 registrations');
+
+  const row1 = sheet.getRow(2);
+  const row2 = sheet.getRow(3);
+
+  // Column A: Event Name
+  assert.equal(row1.getCell(1).value, 'Workbook Alpha');
+  assert.equal(row2.getCell(1).value, 'Workbook Alpha');
+
+  // Column C: Team Leader Name
+  const names = [row1.getCell(3).value, row2.getCell(3).value];
+  assert.deepEqual(names.sort(), [alice.name, bob.name].sort());
+
+  // Column D: Register Number
+  const regNos = [row1.getCell(4).value, row2.getCell(4).value];
+  assert.deepEqual(regNos.sort(), [alice.registerNumber.toUpperCase(), bob.registerNumber.toUpperCase()].sort());
+
+  // Column J: Registration ID
+  assert.ok(String(row1.getCell(10).value).startsWith('SP26-'));
+  assert.ok(String(row2.getCell(10).value).startsWith('SP26-'));
+
+  // Column K: Attendance Status
+  assert.equal(row1.getCell(11).value, 'Pending');
+  assert.equal(row2.getCell(11).value, 'Pending');
 });
 
 test('exported attendance reflects a later check-in (database remains authoritative)', async () => {
@@ -84,113 +110,148 @@ test('exported attendance reflects a later check-in (database remains authoritat
 
   const before = await fetchXlsx(ctx.agent, `/api/admin/events/${event.id}/registrations.xlsx`);
   const wbBefore = await loadWorkbook(before);
-  const rowsBefore = parseSheetKeyValues(wbBefore.worksheets[0]);
-  const attBefore = rowsBefore.find((r) => r.field === 'Attendance Status');
-  assert.equal(attBefore.details, 'Pending');
+  const sheetBefore = wbBefore.worksheets[0];
+  assert.equal(sheetBefore.getRow(2).getCell(11).value, 'Pending');
 
   await ctx.agent.post('/api/admin/attendance/verify').set('x-csrf-token', ctx.csrf).send({ eventId: event.id, code: pass.qr.payload });
 
   const after = await fetchXlsx(ctx.agent, `/api/admin/events/${event.id}/registrations.xlsx`);
   assert.equal(after.headers['x-export-present'], '1');
   const wbAfter = await loadWorkbook(after);
-  const rowsAfter = parseSheetKeyValues(wbAfter.worksheets[0]);
-  const attAfter = rowsAfter.find((r) => r.field === 'Attendance Status');
-  assert.equal(attAfter.details, 'Present');
+  const sheetAfter = wbAfter.worksheets[0];
+  assert.equal(sheetAfter.getRow(2).getCell(11).value, 'Present');
 });
 
-test('team registrations export all team members directly below their leader in one worksheet', async () => {
+test('team registrations export all team members on the same row with member columns', async () => {
   const nfEvent = await makeEvent({ name: 'NeuroForge Team Test', category: 'TECHNICAL' });
   const leader = { ...studentFixture(), phone: '9876543210' };
-  const m2 = { name: 'Bob Two', registerNumber: '710023104002', department: 'CSE', academicYear: 'III', section: 'A' };
-  const m3 = { name: 'Charlie Three', registerNumber: '710023104003', department: 'ECE', academicYear: 'III', section: 'B' };
-  const m4 = { name: 'David Four', registerNumber: '710023104004', department: 'IT', academicYear: 'II', section: 'C' };
+  const m2 = { name: 'Bob Two', registerNumber: '710023104002', department: 'CSE', academicYear: 'III', section: 'A', email: 'bob@example.com', phone: '9876543212' };
+  const m3 = { name: 'Charlie Three', registerNumber: '710023104003', department: 'ECE', academicYear: 'III', section: 'B', email: 'charlie@example.com', phone: '9876543213' };
+  const m4 = { name: 'David Four', registerNumber: '710023104004', department: 'IT', academicYear: 'II', section: 'C', email: 'david@example.com', phone: '9876543214' };
 
-  await register(nfEvent, {
+  const pass = await register(nfEvent, {
     ...leader,
+    teamName: 'Cyber Titans',
     teamMembers: [m2, m3, m4],
   });
 
   const res = await fetchXlsx(ctx.agent, `/api/admin/events/${nfEvent.id}/registrations.xlsx`);
   assert.equal(res.status, 200);
   const wb = await loadWorkbook(res);
-  assert.equal(wb.worksheets.length, 1, 'must have exactly one worksheet');
-
   const sheet = wb.worksheets[0];
-  const rows = parseSheetKeyValues(sheet);
 
-  // 1. Leader appears first
-  const leaderIdx = rows.findIndex((r) => r.field === 'Team Leader Name');
-  assert.ok(leaderIdx > 0);
-  assert.equal(rows[leaderIdx].details, leader.name);
+  // 1 row for header + 1 row for the registered team = 2 rows
+  assert.equal(sheet.rowCount, 2);
 
-  // Leader details
-  assert.equal(rows[leaderIdx - 2].field, 'Event Name');
-  assert.equal(rows[leaderIdx - 2].details, nfEvent.name);
-  assert.equal(rows[leaderIdx + 1].field, 'Register Number');
-  assert.equal(rows[leaderIdx + 1].details, leader.registerNumber.toUpperCase());
-  assert.equal(rows[leaderIdx + 5].field, 'Email');
-  assert.equal(rows[leaderIdx + 5].details, leader.email.toLowerCase());
-  assert.equal(rows[leaderIdx + 6].field, 'Mobile Number');
-  assert.equal(rows[leaderIdx + 6].details, leader.phone);
+  const headers = sheet.getRow(1).values.slice(1).map(String);
 
-  // 2. TEAM MEMBERS section immediately below leader
-  const tmIdx = rows.findIndex((r) => r.field === 'TEAM MEMBERS');
-  assert.ok(tmIdx > leaderIdx, 'TEAM MEMBERS must appear below team leader');
-  assert.match(rows[tmIdx].details, /3 Member\(s\)/);
+  // Check leader columns
+  assert.equal(headers[0], 'Event Name');
+  assert.equal(headers[1], 'Team Name');
+  assert.equal(headers[2], 'Team Leader Name');
+  assert.equal(headers[3], 'Register Number');
+  assert.equal(headers[4], 'Department');
+  assert.equal(headers[5], 'Year');
+  assert.equal(headers[6], 'Section');
+  assert.equal(headers[7], 'Email');
+  assert.equal(headers[8], 'Mobile Number');
+  assert.equal(headers[9], 'Registration ID');
+  assert.equal(headers[10], 'Attendance Status');
 
-  // 3. Member 1
-  assert.equal(rows[tmIdx + 1].field, 'Member 1 Name');
-  assert.equal(rows[tmIdx + 1].details, m2.name);
-  assert.equal(rows[tmIdx + 2].field, 'Register Number');
-  assert.equal(rows[tmIdx + 2].details, m2.registerNumber);
-  assert.equal(rows[tmIdx + 3].field, 'Department');
-  assert.equal(rows[tmIdx + 3].details, m2.department);
+  // Check member 1 columns
+  assert.equal(headers[11], 'Member 1 Name');
+  assert.equal(headers[12], 'Member 1 Register Number');
+  assert.equal(headers[13], 'Member 1 Department');
+  assert.equal(headers[14], 'Member 1 Year');
+  assert.equal(headers[15], 'Member 1 Section');
+  assert.equal(headers[16], 'Member 1 Email');
+  assert.equal(headers[17], 'Member 1 Mobile Number');
 
-  // 4. Member 2
-  assert.equal(rows[tmIdx + 8].field, 'Member 2 Name');
-  assert.equal(rows[tmIdx + 8].details, m3.name);
-  assert.equal(rows[tmIdx + 9].field, 'Register Number');
-  assert.equal(rows[tmIdx + 9].details, m3.registerNumber);
+  // Check member 2 columns
+  assert.equal(headers[18], 'Member 2 Name');
+  assert.equal(headers[19], 'Member 2 Register Number');
 
-  // 5. Member 3
-  assert.equal(rows[tmIdx + 15].field, 'Member 3 Name');
-  assert.equal(rows[tmIdx + 15].details, m4.name);
-  assert.equal(rows[tmIdx + 16].field, 'Register Number');
-  assert.equal(rows[tmIdx + 16].details, m4.registerNumber);
+  // Check member 3 columns
+  assert.equal(headers[25], 'Member 3 Name');
+  assert.equal(headers[26], 'Member 3 Register Number');
+
+  // Check row data
+  const dataRow = sheet.getRow(2);
+  assert.equal(dataRow.getCell(1).value, nfEvent.name);
+  assert.equal(dataRow.getCell(2).value, 'Cyber Titans');
+  assert.equal(dataRow.getCell(3).value, leader.name);
+  assert.equal(dataRow.getCell(4).value, leader.registerNumber.toUpperCase());
+  assert.equal(dataRow.getCell(8).value, leader.email.toLowerCase());
+  assert.equal(dataRow.getCell(9).value, leader.phone);
+  assert.equal(dataRow.getCell(10).value, pass.registrationId);
+  assert.equal(dataRow.getCell(11).value, 'Pending');
+
+  // Member 1 values
+  assert.equal(dataRow.getCell(12).value, m2.name);
+  assert.equal(dataRow.getCell(13).value, m2.registerNumber);
+  assert.equal(dataRow.getCell(14).value, m2.department);
+  assert.equal(dataRow.getCell(15).value, m2.academicYear);
+  assert.equal(dataRow.getCell(16).value, m2.section);
+
+  // Member 2 values
+  assert.equal(dataRow.getCell(19).value, m3.name);
+  assert.equal(dataRow.getCell(20).value, m3.registerNumber);
+
+  // Member 3 values
+  assert.equal(dataRow.getCell(26).value, m4.name);
+  assert.equal(dataRow.getCell(27).value, m4.registerNumber);
 });
 
-test('CSV exports include vertical format with team leader and all members', async () => {
+test('Registration List CSV export has one registration per row with column headers in row 1', async () => {
   const event = await makeEvent({ name: 'CSV Test Event' });
-  const leader = studentFixture();
+  const leader = { ...studentFixture(), phone: '9876543299' };
   const m2 = { name: 'Alice M2', registerNumber: '710023104010', department: 'CSE', academicYear: 'III', section: 'A' };
   const m3 = { name: 'Bob M3', registerNumber: '710023104011', department: 'CSE', academicYear: 'III', section: 'A' };
 
-  await register(event, { ...leader, teamMembers: [m2, m3] });
+  const pass = await register(event, { ...leader, teamName: 'CSV Team', teamMembers: [m2, m3] });
 
   // Event CSV
   const eventCsvRes = await ctx.agent.get(`/api/admin/events/${event.id}/registrations.csv`);
   assert.equal(eventCsvRes.status, 200);
   assert.match(eventCsvRes.headers['content-type'], /text\/csv/);
   assert.match(eventCsvRes.headers['content-disposition'], /Spark26_CSV_Test_Event_Registrations\.csv/);
-  assert.ok(eventCsvRes.text.includes('Team Leader Name'));
-  assert.ok(eventCsvRes.text.includes('Member 1 Name'));
-  assert.ok(eventCsvRes.text.includes('Member 2 Name'));
-  assert.ok(eventCsvRes.text.includes(m2.name));
-  assert.ok(eventCsvRes.text.includes(m2.registerNumber));
-  assert.ok(eventCsvRes.text.includes(m3.name));
+
+  const lines = eventCsvRes.text.trim().split('\r\n');
+  assert.equal(lines.length, 2, 'CSV must have exactly 1 header line and 1 data line for this event');
+
+  const headers = lines[0].split(',');
+  assert.equal(headers[0], '"Event Name"');
+  assert.equal(headers[1], '"Team Name"');
+  assert.equal(headers[2], '"Team Leader Name"');
+  assert.equal(headers[3], '"Register Number"');
+  assert.equal(headers[4], '"Department"');
+  assert.equal(headers[5], '"Year"');
+  assert.equal(headers[6], '"Section"');
+  assert.equal(headers[7], '"Email"');
+  assert.equal(headers[8], '"Mobile Number"');
+  assert.equal(headers[9], '"Registration ID"');
+  assert.equal(headers[10], '"Attendance Status"');
+
+  const dataLine = lines[1];
+  assert.ok(dataLine.includes(pass.registrationId));
+  assert.ok(dataLine.includes(leader.name));
+  assert.ok(dataLine.includes('CSV Team'));
+  assert.ok(dataLine.includes(m2.name));
+  assert.ok(dataLine.includes(m3.name));
 
   // All registrations CSV
   const allCsvRes = await ctx.agent.get('/api/admin/export/registrations.csv');
   assert.equal(allCsvRes.status, 200);
   assert.match(allCsvRes.headers['content-type'], /text\/csv/);
-  assert.match(allCsvRes.headers['content-disposition'], /Spark26_Registrations_.*\.csv/);
-  assert.ok(allCsvRes.text.includes('Team Leader Name'));
-  assert.ok(allCsvRes.text.includes(m2.name));
+  const allLines = allCsvRes.text.trim().split('\r\n');
+  assert.ok(allLines.length >= 2);
+  assert.ok(allLines[0].includes('Event Name'));
+  assert.ok(allCsvRes.text.includes(leader.name));
 });
 
-test('master workbook has exactly one worksheet with all registered teams in vertical layout', async () => {
-  const eventA = await makeEvent({ name: 'Master One' });
-  const eventB = await makeEvent({ name: 'Master Two' });
+test('Master workbook contains All Registrations sheet and per-event worksheets', async () => {
+  const eventA = await makeEvent({ name: 'Master Alpha' });
+  const eventB = await makeEvent({ name: 'Master Beta' });
   await register(eventA, studentFixture());
   await register(eventA, studentFixture());
   await register(eventB, studentFixture());
@@ -200,13 +261,16 @@ test('master workbook has exactly one worksheet with all registered teams in ver
   assert.match(res.headers['content-disposition'], /Spark26_Master_Registrations_.*\.xlsx/);
 
   const wb = await loadWorkbook(res);
-  assert.equal(wb.worksheets.length, 1, 'master workbook must have exactly one worksheet');
+  const sheetNames = wb.worksheets.map((w) => w.name);
+  assert.equal(sheetNames[0], 'All Registrations');
+  assert.ok(sheetNames.some((n) => n.includes('Master Alpha')));
+  assert.ok(sheetNames.some((n) => n.includes('Master Beta')));
 
-  const sheet = wb.worksheets[0];
-  const rows = parseSheetKeyValues(sheet);
-  const events = rows.filter((r) => r.field === 'Event Name').map((r) => r.details);
-  assert.equal(events.filter((e) => e === 'Master One').length, 2);
-  assert.equal(events.filter((e) => e === 'Master Two').length, 1);
+  const allSheet = wb.worksheets[0];
+  assert.equal(allSheet.getRow(1).getCell(1).value, 'Event Name');
+  assert.equal(allSheet.getRow(1).getCell(3).value, 'Team Leader Name');
+  assert.equal(allSheet.views[0].state, 'frozen');
+  assert.ok(allSheet.autoFilter);
 });
 
 test('exports are gated behind authentication and audited', async () => {
