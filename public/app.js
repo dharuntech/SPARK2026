@@ -953,7 +953,7 @@ function renderPassChips(){const box=$('passSwitcher');if(!box)return;box.innerH
 
 function renderPass(){const ids=['passEvent','passId','passName','passReg','passCategory','passVenue','passTime','passAttendance'],qr=$('qr'),p=passes[passIndex]||null;
 renderPassChips();
-if(!p){ids.forEach(id=>$(id).textContent=id==='passEvent'?'No registered events found':'—');$('passStatus').textContent='NO PASS';$('passHint').innerHTML='No registered events found. Register for an event to receive a genuine, scannable QR pass — or restore an existing pass with your register number and email below.';qr.classList.remove('has-image');qr.innerHTML='';$('downloadQr').disabled=true;if($('downloadPdf'))$('downloadPdf').disabled=true;return}
+if(!p){ids.forEach(id=>$(id).textContent=id==='passEvent'?'No registered events found':'—');$('passStatus').textContent='NO PASS';$('passHint').innerHTML='No registered events found. Select an event from the Events catalog to register and generate your verified pass.';if(qr){qr.classList.remove('has-image');qr.innerHTML='';}$('downloadQr').disabled=true;if($('downloadPdf'))$('downloadPdf').disabled=true;return}
 $('passEvent').textContent=p.event.name;$('passId').textContent=p.registrationId;$('passName').textContent=p.student.name;$('passReg').textContent=p.student.registerNumber;
 $('passCategory').textContent=p.event.categoryLabel;$('passVenue').textContent=p.event.venue;$('passTime').textContent=p.event.dateLabel+' · '+p.event.timeLabel;
 $('passAttendance').textContent=p.attendanceVerified?('PRESENT · '+p.checkedInAtLabel):p.attendanceStatus;
@@ -971,8 +971,7 @@ if(p.teamMembers&&p.teamMembers.length){
 }
 
 $('passHint').innerHTML='Registered '+esc(p.createdAtLabel)+' IST · '+esc(p.sourceLabel)+'<br>'+esc(p.student.department)+' · Year '+esc(p.student.academicYear)+' · Section '+esc(p.student.section)+teamDetails+(p.attendanceVerified?'<br>Checked in: '+esc(p.checkedInAtLabel):'');
-qr.classList.add('has-image');
-qr.innerHTML='<img alt="QR pass '+esc(p.registrationId)+'" src="'+p.qr.svgDataUrl+'">';
+if(qr){qr.classList.add('has-image');qr.innerHTML='<img alt="QR pass '+esc(p.registrationId)+'" src="'+p.qr.svgDataUrl+'">';}
 $('downloadQr').disabled=false;if($('downloadPdf'))$('downloadPdf').disabled=false}
 function downloadPassPdf(p){
   if(!p)return;
@@ -1268,19 +1267,23 @@ $('refreshPass').onclick=async()=>{passes=[];await updatePass();toast('Pass refr
 $('downloadQr').onclick=()=>{const p=passes[passIndex];if(!p)return;const a=document.createElement('a');a.href=p.qr.pngDataUrl;a.download='Spark26_Pass_'+p.registrationId+'.png';document.body.appendChild(a);a.click();a.remove()};
 if($('downloadPdf'))$('downloadPdf').onclick=()=>{const p=passes[passIndex];if(!p)return;downloadPassPdf(p)};
 $('passSwitcher').addEventListener('click',e=>{const b=e.target.closest('[data-pass]');if(!b)return;passIndex=+b.dataset.pass;if(passes[passIndex])selectedId=passes[passIndex].event.id;renderPass()});
-$('passLookupForm').addEventListener('submit',async e=>{
-e.preventDefault();
-const msg=$('passLookupMsg'),btn=$('passLookupBtn'),label=btn.textContent;
-msg.textContent='';btn.disabled=true;btn.textContent='Searching…';
-try{
-  const d=await api('/api/passes/lookup',{method:'POST',body:{registerNumber:$('lookupRegno').value.trim(),email:$('lookupEmail').value.trim()}});
-  d.passes.forEach(rememberPass);
-  const s=d.passes[0].student;
-  store.set(LS_STUDENT,{name:s.name,registerNumber:s.registerNumber,department:s.department,academicYear:s.academicYear,section:s.section,email:s.email});
-  passes=d.passes;passIndex=0;renderPass();
-  toast('Pass restored',d.count+(d.count===1?' registration':' registrations')+' linked to this device.');
-}catch(ex){msg.textContent=ex.message}
-finally{btn.disabled=false;btn.textContent=label}});
+const lookupForm=$('passLookupForm');
+if(lookupForm){
+  lookupForm.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const msg=$('passLookupMsg'),btn=$('passLookupBtn'),label=btn.textContent;
+    msg.textContent='';btn.disabled=true;btn.textContent='Searching…';
+    try{
+      const d=await api('/api/passes/lookup',{method:'POST',body:{registerNumber:$('lookupRegno').value.trim(),email:$('lookupEmail').value.trim()}});
+      d.passes.forEach(rememberPass);
+      const s=d.passes[0].student;
+      store.set(LS_STUDENT,{name:s.name,registerNumber:s.registerNumber,department:s.department,academicYear:s.academicYear,section:s.section,email:s.email});
+      passes=d.passes;passIndex=0;renderPass();
+      toast('Pass restored',d.count+(d.count===1?' registration':' registrations')+' linked to this device.');
+    }catch(ex){msg.textContent=ex.message}
+    finally{btn.disabled=false;btn.textContent=label}
+  });
+}
 function showInfo(title,lead,body){$('infoTitle').textContent=title;$('infoLead').textContent=lead;$('infoBody').innerHTML=body;$('infoOverlay').classList.add('show');$('infoOverlay').setAttribute('aria-hidden','false')}function closeInfo(){$('infoOverlay').classList.remove('show');$('infoOverlay').setAttribute('aria-hidden','true')}function openLogin(){$('loginError').textContent='';$('loginPassword').value='';$('loginOverlay').classList.add('show');$('loginOverlay').setAttribute('aria-hidden','false');setTimeout(()=>$('loginPassword').focus(),50)}function closeLogin(){$('loginOverlay').classList.remove('show');$('loginOverlay').setAttribute('aria-hidden','true')}$('closeInfo').onclick=closeInfo;$('closeLogin').onclick=closeLogin;$('infoOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeInfo()});$('loginOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLogin()});$('navAdmin').onclick=async()=>{if(await restoreSession())await openAdmin();else openLogin()};$('forgotBtn').onclick=()=>showInfo('Password reset','Protected admin access','<div class="notice">Admin passwords are reset by the event coordinator with <b>npm run admin:create -- --email … --rotate</b> (see README). There is no public password-reset endpoint by design.</div>');
 /* ═══════════════════════ ADMIN WORKSPACE (PostgreSQL backed) ═══════════════════════ */
 let adminEvents=[],adminRegRows=[],adminSelectedEvent='',adminBusy=false;
