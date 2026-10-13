@@ -10,36 +10,40 @@ const HEADER_FONT = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
 const ALT_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F3FF' } };
 
 /**
- * Returns complete column definitions for registration exports.
- * Base supports 27 columns (Team Leader + Members 2, 3, 4).
- * If extra members exist (e.g. Member 5+), additional column groups are dynamically appended.
+ * Columns for Worksheet 1: Team Registrations
+ * Exactly matching:
+ * 1. Serial Number, 2. Event Name, 3. Team Name, 4. Team Leader Name,
+ * 5. Team Leader Registration Number, 6. Team Leader Email, 7. Team Leader Contact Number,
+ * 8-11: Team Member 1 Name, RegNo, Email, Contact Number
+ * 12-15: Team Member 2 Name, RegNo, Email, Contact Number
+ * and dynamically extended for additional members.
  */
-function getColumns(maxExtraMembers = 3) {
+function getColumns(maxExtraMembers = 2) {
   const cols = [
-    { header: 'Registration ID', key: 'registrationId', width: 22 },
+    { header: 'Serial Number', key: 'sno', width: 14 },
     { header: 'Event Name', key: 'eventName', width: 26 },
     { header: 'Team Name', key: 'teamName', width: 22 },
     { header: 'Team Leader Name', key: 'leaderName', width: 26 },
-    { header: 'Team Leader Register Number', key: 'leaderRegisterNumber', width: 28 },
-    { header: 'Team Leader Department', key: 'leaderDepartment', width: 32 },
-    { header: 'Team Leader Year', key: 'leaderAcademicYear', width: 18 },
-    { header: 'Team Leader Section', key: 'leaderSection', width: 18 },
+    { header: 'Team Leader Registration Number', key: 'leaderRegisterNumber', width: 30 },
     { header: 'Team Leader Email', key: 'leaderEmail', width: 30 },
-    { header: 'Team Leader Mobile Number', key: 'leaderPhone', width: 26 },
+    { header: 'Team Leader Contact Number', key: 'leaderPhone', width: 26 },
   ];
 
-  const memberSlots = Math.max(3, Number(maxExtraMembers) || 3);
-  for (let m = 2; m <= memberSlots + 1; m += 1) {
+  const memberSlots = Math.max(2, Number(maxExtraMembers) || 2);
+  for (let m = 1; m <= memberSlots; m += 1) {
     cols.push(
       { header: `Team Member ${m} Name`, key: `member${m}Name`, width: 24 },
-      { header: `Team Member ${m} Register Number`, key: `member${m}RegisterNumber`, width: 28 },
-      { header: `Team Member ${m} Department`, key: `member${m}Department`, width: 30 },
-      { header: `Team Member ${m} Year`, key: `member${m}AcademicYear`, width: 18 },
-      { header: `Team Member ${m} Section`, key: `member${m}Section`, width: 18 }
+      { header: `Team Member ${m} Registration Number`, key: `member${m}RegisterNumber`, width: 30 },
+      { header: `Team Member ${m} Email`, key: `member${m}Email`, width: 28 },
+      { header: `Team Member ${m} Contact Number`, key: `member${m}Phone`, width: 26 }
     );
   }
 
   cols.push(
+    { header: 'Registration ID', key: 'registrationId', width: 22 },
+    { header: 'Team Leader Department', key: 'leaderDepartment', width: 32 },
+    { header: 'Team Leader Year', key: 'leaderAcademicYear', width: 18 },
+    { header: 'Team Leader Section', key: 'leaderSection', width: 18 },
     { header: 'Registration Date', key: 'regDate', width: 18 },
     { header: 'Attendance Status', key: 'attendance', width: 18 }
   );
@@ -47,11 +51,27 @@ function getColumns(maxExtraMembers = 3) {
   return cols;
 }
 
-const COLUMNS = getColumns(3);
+const COLUMNS = getColumns(2);
 
-function iconFor(event) {
-  return event.category === 'TECHNICAL' ? '⚙' : '★';
-}
+/**
+ * Columns for Worksheet 2: Team Members
+ * One row per team member, linked to event and team leader.
+ */
+const TEAM_MEMBER_COLUMNS = [
+  { header: 'Serial Number', key: 'sno', width: 14 },
+  { header: 'Registration ID', key: 'registrationId', width: 22 },
+  { header: 'Event Name', key: 'eventName', width: 26 },
+  { header: 'Team Name', key: 'teamName', width: 22 },
+  { header: 'Team Leader Name', key: 'leaderName', width: 26 },
+  { header: 'Member Role', key: 'role', width: 18 },
+  { header: 'Member Name', key: 'memberName', width: 24 },
+  { header: 'Registration Number', key: 'registerNumber', width: 28 },
+  { header: 'Email Address', key: 'email', width: 30 },
+  { header: 'Contact Number', key: 'phone', width: 22 },
+  { header: 'Department', key: 'department', width: 30 },
+  { header: 'Year', key: 'academicYear', width: 14 },
+  { header: 'Section', key: 'section', width: 14 },
+];
 
 function applyWidths(sheet, keys, columns) {
   keys.forEach((key, i) => {
@@ -113,20 +133,17 @@ async function attachTeamMembers(registrations) {
   });
 }
 
-function rowsForEvent(registrations, maxExtraMembers = 3) {
-  const memberSlots = Math.max(3, Number(maxExtraMembers) || 3);
-  return registrations.map((r) => {
+function rowsForEvent(registrations, maxExtraMembers = 2) {
+  const memberSlots = Math.max(2, Number(maxExtraMembers) || 2);
+  return registrations.map((r, i) => {
     const regDate = time.dateToIstInputs(r.createdAt);
     const members = Array.isArray(r.teamMembers) ? r.teamMembers : [];
     const values = [
-      r.registrationId,
+      i + 1,
       r.event ? r.event.name : '',
       r.teamName || '',
       r.student ? r.student.name : '',
       r.student ? r.student.registerNumber : '',
-      r.student ? r.student.department : '',
-      r.student ? r.student.academicYear : '',
-      r.student ? r.student.section : '',
       r.student ? r.student.email : '',
       r.student && r.student.phone ? r.student.phone : '',
     ];
@@ -136,13 +153,16 @@ function rowsForEvent(registrations, maxExtraMembers = 3) {
       values.push(
         m ? (m.name || '') : '',
         m ? (m.registerNumber || '') : '',
-        m ? (m.department || '') : '',
-        m ? (m.academicYear || '') : '',
-        m ? (m.section || '') : ''
+        m ? (m.email || '') : '',
+        m ? (m.phone || '') : ''
       );
     }
 
     values.push(
+      r.registrationId,
+      r.student ? r.student.department : '',
+      r.student ? r.student.academicYear : '',
+      r.student ? r.student.section : '',
       regDate.date,
       r.attendanceStatus === 'PRESENT' ? 'Present' : r.attendanceStatus === 'ABSENT' ? 'Absent' : 'Pending'
     );
@@ -196,10 +216,14 @@ function safeFilePart(name) {
   return String(name || 'Event').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'Event';
 }
 
-/** One workbook per event — complete 27 columns with all team members included */
+/**
+ * Builds event workbook with two worksheets:
+ * Worksheet 1 — Team Registrations
+ * Worksheet 2 — Team Members
+ */
 async function buildEventWorkbook(eventId) {
   const { event, registrations } = await loadEventWithRegistrations(eventId);
-  const maxExtra = Math.max(3, ...registrations.map((r) => (Array.isArray(r.teamMembers) ? r.teamMembers.length : 0)));
+  const maxExtra = Math.max(2, ...registrations.map((r) => (Array.isArray(r.teamMembers) ? r.teamMembers.length : 0)));
   const columns = getColumns(maxExtra);
   const rows = rowsForEvent(registrations, maxExtra);
   const summary = {
@@ -212,14 +236,16 @@ async function buildEventWorkbook(eventId) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Spark’26 Admin Workspace';
   wb.created = new Date();
-  const sheet = wb.addWorksheet(sanitizeSheetName('Registrations'));
-  applyWidths(sheet, columns.map((c) => c.key), columns);
-  addEventMeta(sheet, event, rows, summary, columns.length);
 
-  const headerRow = sheet.addRow(columns.map((c) => c.header));
-  styleHeaderRow(headerRow);
+  // ── Worksheet 1: Team Registrations ──
+  const sheet1 = wb.addWorksheet('Team Registrations');
+  applyWidths(sheet1, columns.map((c) => c.key), columns);
+  addEventMeta(sheet1, event, rows, summary, columns.length);
+
+  const headerRow1 = sheet1.addRow(columns.map((c) => c.header));
+  styleHeaderRow(headerRow1);
   rows.forEach((r, idx) => {
-    const row = sheet.addRow(r.values);
+    const row = sheet1.addRow(r.values);
     if (idx % 2 === 1) row.eachCell((cell) => { cell.fill = ALT_FILL; });
     const attCell = row.getCell(columns.length);
     const isPresent = attCell.value === 'Present';
@@ -227,22 +253,87 @@ async function buildEventWorkbook(eventId) {
     row.alignment = { vertical: 'middle' };
   });
 
-  sheet.views = [{ state: 'frozen', ySplit: headerRow.number }];
-  sheet.autoFilter = { from: { row: headerRow.number, column: 1 }, to: { row: headerRow.number, column: columns.length } };
-  sheet.getColumn(columns.length - 1).numFmt = '@'; // Registration Date
+  sheet1.views = [{ state: 'frozen', ySplit: headerRow1.number }];
+  sheet1.autoFilter = { from: { row: headerRow1.number, column: 1 }, to: { row: headerRow1.number, column: columns.length } };
+  sheet1.getColumn(columns.length - 1).numFmt = '@';
+
+  // ── Worksheet 2: Team Members ──
+  const sheet2 = wb.addWorksheet('Team Members');
+  applyWidths(sheet2, TEAM_MEMBER_COLUMNS.map((c) => c.key), TEAM_MEMBER_COLUMNS);
+  const title2 = sheet2.addRow([`${event.name} — Registered Team Members`]);
+  title2.font = { bold: true, size: 13, color: { argb: 'FF3B0764' } };
+  sheet2.mergeCells(title2.number, 1, title2.number, TEAM_MEMBER_COLUMNS.length);
+  sheet2.addRow([]);
+
+  const headerRow2 = sheet2.addRow(TEAM_MEMBER_COLUMNS.map((c) => c.header));
+  styleHeaderRow(headerRow2);
+
+  let memberSno = 1;
+  registrations.forEach((r) => {
+    const members = Array.isArray(r.teamMembers) ? r.teamMembers : [];
+    members.forEach((m, idx) => {
+      const row = sheet2.addRow([
+        memberSno++,
+        r.registrationId,
+        event.name,
+        r.teamName || '',
+        r.student ? r.student.name : '',
+        `Team Member ${idx + 1}`,
+        m.name || '',
+        m.registerNumber || '',
+        m.email || '',
+        m.phone || '',
+        m.department || '',
+        m.academicYear || '',
+        m.section || '',
+      ]);
+      row.alignment = { vertical: 'middle' };
+      if ((memberSno - 1) % 2 === 1) row.eachCell((cell) => { cell.fill = ALT_FILL; });
+    });
+  });
+
+  sheet2.views = [{ state: 'frozen', ySplit: headerRow2.number }];
+  sheet2.autoFilter = { from: { row: headerRow2.number, column: 1 }, to: { row: headerRow2.number, column: TEAM_MEMBER_COLUMNS.length } };
 
   const buffer = await wb.xlsx.writeBuffer();
   return { buffer, filename: `Spark26_${safeFilePart(event.name)}_Registrations.xlsx`, event, count: rows.length, summary };
 }
 
-/** Master workbook: summary sheet + one worksheet per event. */
+/**
+ * Master workbook with:
+ * Worksheet 1 — Team Registrations (all registered teams across all events)
+ * Worksheet 2 — Team Members (all team members linked to their team leader)
+ * Worksheet 3 — Summary (event-wise summary counts)
+ * Worksheet 4 — About (provenance note)
+ */
 async function buildMasterWorkbook({ statuses = ['PUBLISHED', 'DRAFT', 'COMPLETED', 'CANCELLED'] } = {}) {
   const events = await prisma.event.findMany({ where: { status: { in: statuses } }, orderBy: [{ startsAt: 'asc' }, { code: 'asc' }] });
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Spark’26 Admin Workspace';
   wb.created = new Date();
 
-  const summary = wb.addWorksheet(sanitizeSheetName('Summary'));
+  const allRegistrations = [];
+  let globalMaxExtra = 2;
+
+  for (const event of events) {
+    const regs = await prisma.registration.findMany({
+      where: { eventId: event.id },
+      include: registrationInclude,
+      orderBy: { createdAt: 'asc' },
+    });
+    await attachTeamMembers(regs);
+    for (const r of regs) {
+      allRegistrations.push(r);
+      if (Array.isArray(r.teamMembers) && r.teamMembers.length > globalMaxExtra) {
+        globalMaxExtra = r.teamMembers.length;
+      }
+    }
+  }
+
+  const columns = getColumns(globalMaxExtra);
+
+  // ── Worksheet 1: Summary ──
+  const summary = wb.addWorksheet('Summary');
   const SUMMARY_COLUMNS = [
     { header: 'Code', width: 9 },
     { header: 'Event', width: 32 },
@@ -266,39 +357,18 @@ async function buildMasterWorkbook({ statuses = ['PUBLISHED', 'DRAFT', 'COMPLETE
   stamp.getCell(1).font = { size: 10, italic: true, color: { argb: 'FF6B7280' } };
   summary.mergeCells(stamp.number, 1, stamp.number, SUMMARY_COLUMNS.length);
   summary.addRow([]);
-  const headerRow = summary.addRow(SUMMARY_COLUMNS.map((c) => c.header));
-  styleHeaderRow(headerRow);
+  const headerRowSum = summary.addRow(SUMMARY_COLUMNS.map((c) => c.header));
+  styleHeaderRow(headerRowSum);
 
-  // Pre-load all registrations and attach team members
-  const eventRegMap = new Map();
-  let globalMaxExtra = 3;
-  for (const event of events) {
-    const regs = await prisma.registration.findMany({
-      where: { eventId: event.id },
-      include: registrationInclude,
-      orderBy: { createdAt: 'asc' },
-    });
-    await attachTeamMembers(regs);
-    eventRegMap.set(event.id, regs);
-    for (const r of regs) {
-      if (Array.isArray(r.teamMembers) && r.teamMembers.length > globalMaxExtra) {
-        globalMaxExtra = r.teamMembers.length;
-      }
-    }
-  }
-
-  const columns = getColumns(globalMaxExtra);
-  const used = new Set(['summary']);
   let totalRegs = 0;
   let totalPresent = 0;
 
   for (const event of events) {
-    const registrations = eventRegMap.get(event.id) || [];
-    const rows = rowsForEvent(registrations, globalMaxExtra);
-    const present = rows.filter((r) => r._attendanceRaw === 'PRESENT').length;
-    const pending = rows.filter((r) => r._attendanceRaw === 'PENDING').length;
-    const onspot = registrations.filter((r) => r.source === 'ON_SPOT').length;
-    totalRegs += rows.length;
+    const eventRegs = allRegistrations.filter((r) => r.eventId === event.id);
+    const present = eventRegs.filter((r) => r.attendanceStatus === 'PRESENT').length;
+    const pending = eventRegs.filter((r) => r.attendanceStatus === 'PENDING').length;
+    const onspot = eventRegs.filter((r) => r.source === 'ON_SPOT').length;
+    totalRegs += eventRegs.length;
     totalPresent += present;
 
     const row = summary.addRow([
@@ -310,37 +380,117 @@ async function buildMasterWorkbook({ statuses = ['PUBLISHED', 'DRAFT', 'COMPLETE
       time.fmtRange(event.startsAt, event.endsAt),
       event.registrationMode === 'ON_SPOT' ? 'On-Spot' : event.registrationMode === 'BOTH' ? 'Both' : 'Website',
       event.status,
-      rows.length,
+      eventRegs.length,
       present,
       pending,
-      rows.length - onspot,
+      eventRegs.length - onspot,
       onspot,
     ]);
     row.alignment = { vertical: 'middle' };
+  }
 
-    const sheet = wb.addWorksheet(sanitizeSheetName(`${iconFor(event)} ${event.name}`, used));
-    applyWidths(sheet, columns.map((c) => c.key), columns);
-    addEventMeta(sheet, event, rows, { total: rows.length, present, pending, absent: rows.length - present - pending }, columns.length);
-    const hr = sheet.addRow(columns.map((c) => c.header));
+  const totalsRow = summary.addRow(['', 'TOTAL', '', '', '', '', '', '', totalRegs, totalPresent, totalRegs - totalPresent, '', '']);
+  totalsRow.font = { bold: true, color: { argb: 'FF3B0764' } };
+  summary.views = [{ state: 'frozen', ySplit: headerRowSum.number }];
+  summary.autoFilter = { from: { row: headerRowSum.number, column: 1 }, to: { row: headerRowSum.number, column: SUMMARY_COLUMNS.length } };
+
+  // ── Worksheet 2: Team Registrations ──
+  const sheet1 = wb.addWorksheet('Team Registrations');
+  applyWidths(sheet1, columns.map((c) => c.key), columns);
+  const title1 = sheet1.addRow(['Spark’26 — All Registered Teams']);
+  title1.font = { bold: true, size: 14, color: { argb: 'FF3B0764' } };
+  sheet1.mergeCells(title1.number, 1, title1.number, columns.length);
+  const stamp1 = sheet1.addRow([`Generated ${time.fmtDateTime(new Date())} IST · Total teams: ${allRegistrations.length}`]);
+  stamp1.getCell(1).font = { size: 10, italic: true, color: { argb: 'FF6B7280' } };
+  sheet1.mergeCells(stamp1.number, 1, stamp1.number, columns.length);
+  sheet1.addRow([]);
+
+  const headerRow1 = sheet1.addRow(columns.map((c) => c.header));
+  styleHeaderRow(headerRow1);
+
+  const rows = rowsForEvent(allRegistrations, globalMaxExtra);
+  rows.forEach((r, idx) => {
+    const row = sheet1.addRow(r.values);
+    if (idx % 2 === 1) row.eachCell((cell) => { cell.fill = ALT_FILL; });
+    const attCell = row.getCell(columns.length);
+    const isPresent = attCell.value === 'Present';
+    attCell.font = { bold: isPresent, color: { argb: isPresent ? 'FF047857' : 'FF6B7280' } };
+    row.alignment = { vertical: 'middle' };
+  });
+
+  sheet1.views = [{ state: 'frozen', ySplit: headerRow1.number }];
+  sheet1.autoFilter = { from: { row: headerRow1.number, column: 1 }, to: { row: headerRow1.number, column: columns.length } };
+  sheet1.getColumn(columns.length - 1).numFmt = '@';
+
+  // ── Worksheet 3: Team Members ──
+  const sheet2 = wb.addWorksheet('Team Members');
+  applyWidths(sheet2, TEAM_MEMBER_COLUMNS.map((c) => c.key), TEAM_MEMBER_COLUMNS);
+  const title2 = sheet2.addRow(['Spark’26 — All Team Members']);
+  title2.font = { bold: true, size: 14, color: { argb: 'FF3B0764' } };
+  sheet2.mergeCells(title2.number, 1, title2.number, TEAM_MEMBER_COLUMNS.length);
+  const stamp2 = sheet2.addRow([`Generated ${time.fmtDateTime(new Date())} IST`]);
+  stamp2.getCell(1).font = { size: 10, italic: true, color: { argb: 'FF6B7280' } };
+  sheet2.mergeCells(stamp2.number, 1, stamp2.number, TEAM_MEMBER_COLUMNS.length);
+  sheet2.addRow([]);
+
+  const headerRow2 = sheet2.addRow(TEAM_MEMBER_COLUMNS.map((c) => c.header));
+  styleHeaderRow(headerRow2);
+
+  let memberSno = 1;
+  allRegistrations.forEach((r) => {
+    const members = Array.isArray(r.teamMembers) ? r.teamMembers : [];
+    members.forEach((m, idx) => {
+      const row = sheet2.addRow([
+        memberSno++,
+        r.registrationId,
+        r.event ? r.event.name : '',
+        r.teamName || '',
+        r.student ? r.student.name : '',
+        `Team Member ${idx + 1}`,
+        m.name || '',
+        m.registerNumber || '',
+        m.email || '',
+        m.phone || '',
+        m.department || '',
+        m.academicYear || '',
+        m.section || '',
+      ]);
+      row.alignment = { vertical: 'middle' };
+      if ((memberSno - 1) % 2 === 1) row.eachCell((cell) => { cell.fill = ALT_FILL; });
+    });
+  });
+
+  sheet2.views = [{ state: 'frozen', ySplit: headerRow2.number }];
+  sheet2.autoFilter = { from: { row: headerRow2.number, column: 1 }, to: { row: headerRow2.number, column: TEAM_MEMBER_COLUMNS.length } };
+
+  // ── Per-Event Worksheets ──
+  const used = new Set(['summary', 'team registrations', 'team members', 'about']);
+  for (const event of events) {
+    const eventRegs = allRegistrations.filter((r) => r.eventId === event.id);
+    const eventMaxExtra = Math.max(2, ...eventRegs.map((r) => (Array.isArray(r.teamMembers) ? r.teamMembers.length : 0)));
+    const evCols = getColumns(eventMaxExtra);
+    const sheet = wb.addWorksheet(sanitizeSheetName(event.name, used));
+    applyWidths(sheet, evCols.map((c) => c.key), evCols);
+    const evRows = rowsForEvent(eventRegs, eventMaxExtra);
+    const evPresent = evRows.filter((r) => r._attendanceRaw === 'PRESENT').length;
+    const evPending = evRows.filter((r) => r._attendanceRaw === 'PENDING').length;
+    addEventMeta(sheet, event, evRows, { total: evRows.length, present: evPresent, pending: evPending, absent: evRows.length - evPresent - evPending }, evCols.length);
+    const hr = sheet.addRow(evCols.map((c) => c.header));
     styleHeaderRow(hr);
-    rows.forEach((r, idx) => {
+    evRows.forEach((r, idx) => {
       const r2 = sheet.addRow(r.values);
       if (idx % 2 === 1) r2.eachCell((cell) => { cell.fill = ALT_FILL; });
-      const attCell = r2.getCell(columns.length);
+      const attCell = r2.getCell(evCols.length);
       const isPresent = attCell.value === 'Present';
       attCell.font = { bold: isPresent, color: { argb: isPresent ? 'FF047857' : 'FF6B7280' } };
       r2.alignment = { vertical: 'middle' };
     });
     sheet.views = [{ state: 'frozen', ySplit: hr.number }];
-    sheet.autoFilter = { from: { row: hr.number, column: 1 }, to: { row: hr.number, column: columns.length } };
-    sheet.getColumn(columns.length - 1).numFmt = '@';
+    sheet.autoFilter = { from: { row: hr.number, column: 1 }, to: { row: hr.number, column: evCols.length } };
+    sheet.getColumn(evCols.length - 1).numFmt = '@';
   }
 
-  const totalsRow = summary.addRow(['', 'TOTAL', '', '', '', '', '', '', totalRegs, totalPresent, totalRegs - totalPresent, '', '']);
-  totalsRow.font = { bold: true, color: { argb: 'FF3B0764' } };
-  summary.views = [{ state: 'frozen', ySplit: headerRow.number }];
-  summary.autoFilter = { from: { row: headerRow.number, column: 1 }, to: { row: headerRow.number, column: SUMMARY_COLUMNS.length } };
-
+  // ── Worksheet 4: About ──
   const generated = wb.addWorksheet('About', { properties: { tabColor: { argb: 'FF7C3AED' } } });
   generated.getColumn(1).width = 26;
   generated.getColumn(2).width = 72;
@@ -365,10 +515,10 @@ function toCsvCell(val) {
 }
 
 /**
- * Builds RFC 4180 CSV with the exact same columns and complete team members.
+ * Builds RFC 4180 CSV matching Worksheet 1 (Team Registrations).
  */
 function buildRegistrationsCsv(registrations) {
-  const maxExtra = Math.max(3, ...registrations.map((r) => (Array.isArray(r.teamMembers) ? r.teamMembers.length : 0)));
+  const maxExtra = Math.max(2, ...registrations.map((r) => (Array.isArray(r.teamMembers) ? r.teamMembers.length : 0)));
   const columns = getColumns(maxExtra);
   const rows = rowsForEvent(registrations, maxExtra);
 
@@ -391,5 +541,6 @@ module.exports = {
   safeFilePart,
   getColumns,
   COLUMNS,
+  TEAM_MEMBER_COLUMNS,
   registrationInclude,
 };

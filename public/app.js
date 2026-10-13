@@ -921,7 +921,13 @@ $('passStatus').textContent=p.attendanceVerified?'ATTENDANCE VERIFIED':'QR READY
 
 let teamDetails='';
 if(p.teamMembers&&p.teamMembers.length){
-  teamDetails='<br><strong>Team ('+(p.teamMembers.length+1)+'):</strong> '+esc(p.student.name)+' (Lead), '+esc(p.teamMembers.map(m=>m.name+' ('+m.registerNumber+')').join(', '));
+  teamDetails='<div style="margin-top:7px;padding-top:5px;border-top:1px dashed rgba(255,255,255,0.15)">'
+    + '<div style="font-weight:700;color:var(--cyan);font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px">Team Members ('+(p.teamMembers.length+1)+' participants):</div>'
+    + '<div style="font-size:11px;margin-top:2px"><strong>Team Leader:</strong> '+esc(p.student.name)+' ('+esc(p.student.registerNumber)+' · '+esc(p.student.department)+')</div>'
+    + p.teamMembers.map((m,idx)=>'<div style="font-size:11px;margin-top:2px"><strong>Member '+(idx+1)+':</strong> '+esc(m.name)+' ('+esc(m.registerNumber||'—')+(m.department?' · '+esc(m.department):'')+((m.academicYear||m.section)?' · Yr '+esc(m.academicYear||'')+' '+esc(m.section||''):'')+(m.email?' · '+esc(m.email):'')+(m.phone?' · 📱 '+esc(m.phone):'')+')</div>').join('')
+    + '</div>';
+}else{
+  teamDetails='<div style="margin-top:5px;font-size:11px;color:rgba(148,163,184,0.8);font-style:italic">No additional team members.</div>';
 }
 
 $('passHint').innerHTML='Registered '+esc(p.createdAtLabel)+' IST · '+esc(p.sourceLabel)+'<br>'+esc(p.student.department)+' · Year '+esc(p.student.academicYear)+' · Section '+esc(p.student.section)+teamDetails+(p.attendanceVerified?'<br>Checked in: '+esc(p.checkedInAtLabel):'');
@@ -936,236 +942,263 @@ function downloadPassPdf(p){
   }
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const pw=210,mx=18,cw=pw-(mx*2);
-  let y=18;
+  const pw=210,mx=16,cw=pw-(mx*2);
+  let y=16;
 
-  const hasTeam = Boolean(p.teamMembers && p.teamMembers.length);
-  const cardH = hasTeam ? Math.min(252, 222 + (p.teamMembers.length * 6)) : 220;
+  function drawPageHeader(titleSuffix = '') {
+    doc.setFillColor(20,24,54);
+    doc.roundedRect(mx,y,cw,30,4,4,'F');
+    doc.rect(mx,y+22,cw,8,'F');
 
-  // Outer pass card border
-  doc.setDrawColor(218,225,233);
-  doc.setLineWidth(0.6);
-  doc.setFillColor(255,255,255);
-  doc.roundedRect(mx,y,cw,cardH,5,5,'FD');
+    doc.setFillColor(99,102,241);
+    doc.rect(mx,y+29,cw,1.5,'F');
 
-  // Header background
-  doc.setFillColor(20,24,54);
-  doc.roundedRect(mx,y,cw,34,5,5,'F');
-  doc.rect(mx,y+25,cw,9,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(15);
+    doc.text("SPARK'26",mx+8,y+11);
 
-  // Accent gradient line
-  doc.setFillColor(99,102,241);
-  doc.rect(mx,y+33,cw,1.5,'F');
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(8);
+    doc.setTextColor(199,210,254);
+    doc.text('NATIONAL LEVEL TECHNICAL EVENT · CSE',mx+8,y+17);
 
-  // Header text
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(16);
-  doc.text("SPARK'26",mx+10,y+13);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(34,211,238);
+    doc.text('OFFICIAL EVENT ENTRY PASS' + titleSuffix,mx+cw-8,y+11,{align:'right'});
 
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(199,210,254);
-  doc.text('NATIONAL LEVEL TECHNICAL EVENT · CSE',mx+10,y+19);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(224,231,255);
+    doc.text('ID: '+p.registrationId,mx+cw-8,y+17,{align:'right'});
+    y+=36;
+  }
 
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(9);
-  doc.setTextColor(34,211,238);
-  doc.text('OFFICIAL EVENT ENTRY PASS',mx+cw-10,y+13,{align:'right'});
-
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(8);
-  doc.setTextColor(224,231,255);
-  doc.text('ID: '+p.registrationId,mx+cw-10,y+19,{align:'right'});
+  drawPageHeader();
 
   // Event Banner
-  y+=42;
   doc.setFillColor(243,246,253);
-  doc.roundedRect(mx+8,y,cw-16,20,3,3,'F');
+  doc.roundedRect(mx,y,cw,18,3,3,'F');
   doc.setDrawColor(224,231,255);
   doc.setLineWidth(0.3);
-  doc.roundedRect(mx+8,y,cw-16,20,3,3,'S');
+  doc.roundedRect(mx,y,cw,18,3,3,'S');
 
   doc.setTextColor(30,41,59);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(13);
-  doc.text(p.event.name||'Event',mx+14,y+9);
+  doc.setFontSize(12.5);
+  doc.text(p.event.name||'Event',mx+10,y+8);
 
   doc.setFont('helvetica','normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(79,70,229);
-  doc.text(((p.event.categoryLabel||'TECHNICAL')+' EVENT').toUpperCase(),mx+14,y+15);
+  doc.text(((p.event.categoryLabel||'TECHNICAL')+' EVENT').toUpperCase(),mx+10,y+14);
 
   // Status Badge
   doc.setFillColor(209,250,229);
   doc.setDrawColor(16,185,129);
   doc.setLineWidth(0.3);
-  doc.roundedRect(mx+cw-58,y+5.5,46,9,2,2,'FD');
+  doc.roundedRect(mx+cw-48,y+4.5,40,9,2,2,'FD');
   doc.setFont('helvetica','bold');
   doc.setFontSize(7);
   doc.setTextColor(5,150,105);
-  doc.text('CONFIRMED PASS',mx+cw-35,y+11.5,{align:'center'});
+  doc.text('CONFIRMED PASS',mx+cw-28,y+10.5,{align:'center'});
 
-  // Two columns: Left (Student & Event Details), Right (QR Code)
-  y+=28;
-  const colW=(cw-24)*0.62;
-  const qrColX=mx+12+colW;
-  const qrColW=(cw-24)*0.38;
+  y+=24;
 
-  // Student Section Heading
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(71,85,105);
-  doc.text(hasTeam?'TEAM LEADER DETAILS':'PARTICIPANT DETAILS',mx+12,y);
+  // Event Schedule & QR Box (2 Columns)
+  const leftColW=(cw-8)*0.62;
+  const rightColW=(cw-8)*0.38;
+  const rightColX=mx+leftColW+8;
 
+  // Left: Event Schedule & Details
+  doc.setFillColor(248,250,252);
   doc.setDrawColor(226,232,240);
   doc.setLineWidth(0.4);
-  doc.line(mx+12,y+2,mx+12+colW-6,y+2);
+  doc.roundedRect(mx,y,leftColW,56,3,3,'FD');
 
-  const drawRow=(label,val,rowY)=>{
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71,85,105);
+  doc.text('EVENT SCHEDULE & VENUE',mx+8,y+6.5);
+  doc.setDrawColor(226,232,240);
+  doc.line(mx+8,y+8.5,mx+leftColW-8,y+8.5);
+
+  const drawEventDetail=(label,val,rowY)=>{
     doc.setFont('helvetica','bold');
     doc.setFontSize(7.5);
     doc.setTextColor(100,116,139);
-    doc.text(label.toUpperCase(),mx+12,rowY);
-
+    doc.text(label.toUpperCase(),mx+8,rowY);
     doc.setFont('helvetica','bold');
     doc.setFontSize(9);
     doc.setTextColor(15,23,42);
-    doc.text(String(val||'—'),mx+46,rowY);
+    doc.text(String(val||'—'),mx+36,rowY);
   };
+  let ey=y+14;
+  drawEventDetail('Event Date',p.event.dateLabel,ey); ey+=7.5;
+  drawEventDetail('Event Time',p.event.timeLabel,ey); ey+=7.5;
+  drawEventDetail('Event Venue',p.event.venue,ey); ey+=7.5;
+  drawEventDetail('Reg. ID',p.registrationId,ey); ey+=7.5;
+  drawEventDetail('Attendance',p.attendanceVerified?'PRESENT':'CONFIRMED',ey);
 
-  let ry=y+9;
-  drawRow(hasTeam?'Leader Name':'Student Name',p.student.name,ry); ry+=8;
-  drawRow('Register No.',p.student.registerNumber,ry); ry+=8;
-  drawRow('Department',p.student.department,ry); ry+=8;
-  drawRow('Year & Sec','Year '+p.student.academicYear+' · Section '+(p.student.section||'—'),ry); ry+=8;
-  drawRow('Email',p.student.email,ry); ry+=8;
-  drawRow('Reg. ID',p.registrationId,ry); ry+=12;
-
-  // Event Details Heading
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(71,85,105);
-  doc.text('EVENT SCHEDULE & VENUE',mx+12,ry);
-
-  doc.line(mx+12,ry+2,mx+12+colW-6,ry+2);
-  ry+=9;
-
-  drawRow('Event Date',p.event.dateLabel,ry); ry+=8;
-  drawRow('Event Time',p.event.timeLabel,ry); ry+=8;
-  drawRow('Event Venue',p.event.venue,ry);
-
-  // Right Column: QR Box
+  // Right: Entry Check-in QR Box
   doc.setFillColor(248,250,252);
-  doc.setDrawColor(203,213,225);
-  doc.setLineWidth(0.4);
-  doc.roundedRect(qrColX,y-2,qrColW,88,3,3,'FD');
+  doc.setDrawColor(226,232,240);
+  doc.roundedRect(rightColX,y,rightColW,56,3,3,'FD');
 
   doc.setFont('helvetica','bold');
   doc.setFontSize(8);
   doc.setTextColor(71,85,105);
-  doc.text('ENTRY CHECK-IN QR',qrColX+qrColW/2,y+5,{align:'center'});
+  doc.text('ENTRY CHECK-IN QR',rightColX+rightColW/2,y+6,{align:'center'});
 
-  // Scannable QR Code Image
-  const qrSize=46;
-  const qrx=qrColX+(qrColW-qrSize)/2;
+  const qrSize=32;
+  const qrx=rightColX+(rightColW-qrSize)/2;
   const qry=y+9;
   if(p.qr&&p.qr.pngDataUrl){
     doc.addImage(p.qr.pngDataUrl,'PNG',qrx,qry,qrSize,qrSize);
   }
-
   doc.setFont('helvetica','bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(30,41,59);
-  doc.text(p.registrationId,qrColX+qrColW/2,qry+qrSize+6,{align:'center'});
+  doc.text(p.registrationId,rightColX+rightColW/2,qry+qrSize+5,{align:'center'});
 
   doc.setFont('helvetica','normal');
   doc.setFontSize(6.5);
   doc.setTextColor(100,116,139);
-  doc.text('Scan with event scanner',qrColX+qrColW/2,qry+qrSize+11,{align:'center'});
-  doc.text('at venue entrance',qrColX+qrColW/2,qry+qrSize+15,{align:'center'});
+  doc.text('Scan at venue entrance',rightColX+rightColW/2,qry+qrSize+9,{align:'center'});
 
-  // Divider line before instructions
-  y=ry+16;
-  doc.setDrawColor(226,232,240);
+  y+=62;
+
+  // ── Team Leader & Team Members Section ──
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(30,41,59);
+  doc.text('TEAM LEADER & TEAM MEMBER DETAILS',mx,y);
+  y+=3.5;
+  doc.setDrawColor(203,213,225);
   doc.setLineWidth(0.4);
-  doc.line(mx+8,y,mx+cw-8,y);
+  doc.line(mx,y,mx+cw,y);
+  y+=5;
 
-  // Important Guidelines & Team Members
-  y+=6;
-  if (hasTeam) {
-    const totalTeam = p.teamMembers.length + 1;
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(8);
-    doc.setTextColor(30,41,59);
-    doc.text('REGISTERED TEAM MEMBERS (' + totalTeam + ' PARTICIPANTS):', mx + 10, y);
-    y += 2.5;
+  function drawParticipantCard(roleTitle, person, isLeader = false) {
+    const cardH = 26;
+    if(y + cardH > 268){
+      doc.addPage();
+      y = 16;
+      drawPageHeader(' (Contd.)');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(30,41,59);
+      doc.text('TEAM MEMBER DETAILS (CONTINUED)',mx,y);
+      y+=3.5;
+      doc.setDrawColor(203,213,225);
+      doc.line(mx,y,mx+cw,y);
+      y+=5;
+    }
 
-    const teamRows = [
-      {
-        role: 'Team Leader',
-        name: p.student.name,
-        regno: p.student.registerNumber,
-        dept: (p.student.department || '—') + (p.student.academicYear ? ' · Yr ' + p.student.academicYear : '') + (p.student.section ? ' (' + p.student.section + ')' : '')
-      },
-      ...p.teamMembers.map((m, idx) => ({
-        role: 'Member ' + (idx + 2),
-        name: m.name || '—',
-        regno: m.registerNumber || '—',
-        dept: (m.department || '—') + (m.academicYear ? ' · Yr ' + m.academicYear : '') + (m.section ? ' (' + m.section + ')' : '')
-      }))
-    ];
+    doc.setFillColor(isLeader ? 245 : 248, isLeader ? 243 : 250, isLeader ? 255 : 252);
+    doc.setDrawColor(isLeader ? 196 : 226, isLeader ? 181 : 232, isLeader ? 253 : 240);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(mx, y, cw, cardH, 2.5, 2.5, 'FD');
 
-    const rowH = 5.2;
-    const tableH = 5 + (teamRows.length * rowH);
-
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(mx + 8, y, cw - 16, tableH, 2, 2, 'FD');
-
-    // Header strip
-    doc.setFillColor(241, 245, 249);
-    doc.rect(mx + 8.2, y + 0.2, cw - 16.4, 4.8, 'F');
+    // Role badge
+    doc.setFillColor(isLeader ? 124 : 79, isLeader ? 58 : 70, isLeader ? 237 : 229);
+    doc.roundedRect(mx + 6, y + 3, 34, 4.8, 1.5, 1.5, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
+    doc.setFontSize(7);
+    doc.setTextColor(255, 255, 255);
+    doc.text(roleTitle, mx + 23, y + 6.3, { align: 'center' });
+
+    const col1X = mx + 6;
+    const col2X = mx + (cw / 2) + 4;
+    let r1 = y + 12;
+
+    // Row 1: Full Name (col 1) | Year & Section (col 2)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
-    doc.text('MEMBER / ROLE', mx + 12, y + 3.4);
-    doc.text('STUDENT NAME', mx + 42, y + 3.4);
-    doc.text('REGISTER NO.', mx + 90, y + 3.4);
-    doc.text('DEPARTMENT, YEAR & SEC', mx + 124, y + 3.4);
+    doc.text('FULL NAME:', col1X, r1);
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(String(person.name || '—').slice(0, 28), col1X + 24, r1);
 
-    teamRows.forEach((row, rIdx) => {
-      const rowY = y + 5 + (rIdx * rowH) + 3.7;
-      const isLead = row.role === 'Team Leader';
-      doc.setFont('helvetica', isLead ? 'bold' : 'normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(isLead ? 79 : 71, isLead ? 70 : 85, isLead ? 229 : 105);
-      doc.text(row.role, mx + 12, rowY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('YEAR & SEC:', col2X, r1);
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    const yrSec = [person.academicYear ? 'Year ' + person.academicYear : '', person.section ? 'Sec ' + person.section : ''].filter(Boolean).join(' · ') || '—';
+    doc.text(yrSec, col2X + 24, r1);
 
-      doc.setFont('helvetica', isLead ? 'bold' : 'normal');
-      doc.setTextColor(30, 41, 59);
-      doc.text(String(row.name).slice(0, 24), mx + 42, rowY);
+    // Row 2: Register No (col 1) | Email Address (col 2)
+    r1 += 5.5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('REG. NO:', col1X, r1);
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(String(person.registerNumber || '—'), col1X + 24, r1);
 
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(71, 85, 105);
-      doc.text(String(row.regno), mx + 90, rowY);
-      doc.text(String(row.dept).slice(0, 36), mx + 124, rowY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('EMAIL:', col2X, r1);
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(String(person.email || '—').slice(0, 30), col2X + 24, r1);
 
-      if (rIdx < teamRows.length - 1) {
-        doc.setDrawColor(241, 245, 249);
-        doc.setLineWidth(0.2);
-        doc.line(mx + 10, y + 5 + ((rIdx + 1) * rowH), mx + cw - 10, y + 5 + ((rIdx + 1) * rowH));
-      }
-    });
+    // Row 3: Department (col 1) | Contact Number (col 2)
+    r1 += 5.5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('DEPT:', col1X, r1);
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(String(person.department || '—').slice(0, 28), col1X + 24, r1);
 
-    y += tableH + 4;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('CONTACT:', col2X, r1);
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(String(person.phone || '—'), col2X + 24, r1);
+
+    y += cardH + 3.5;
   }
 
+  // 1. Draw Team Leader first
+  drawParticipantCard('TEAM LEADER', p.student, true);
+
+  // 2. Draw Team Members directly below
+  const members = Array.isArray(p.teamMembers) ? p.teamMembers : [];
+  if (members.length === 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('No additional team members.', mx + 4, y + 4);
+    y += 9;
+  } else {
+    members.forEach((m, idx) => {
+      drawParticipantCard(`TEAM MEMBER ${idx + 1}`, m, false);
+    });
+  }
+
+  // Guidelines check overflow
+  if (y + 24 > 272) {
+    doc.addPage();
+    y = 16;
+    drawPageHeader(' (Guidelines)');
+  }
+
+  y += 2;
   doc.setFont('helvetica','bold');
   doc.setFontSize(7.5);
   doc.setTextColor(71,85,105);
-  doc.text('IMPORTANT GUIDELINES FOR ATTENDEES:',mx+10,y);
+  doc.text('IMPORTANT GUIDELINES FOR ATTENDEES:',mx,y);
 
   doc.setFont('helvetica','normal');
   doc.setFontSize(6.5);
@@ -1177,14 +1210,14 @@ function downloadPassPdf(p){
     "4. For any queries or assistance, contact the SPARK'26 event help desk or event coordinators."
   ];
   instructions.forEach((ins,idx)=>{
-    doc.text(ins,mx+10,y+4.2+idx*3.8);
+    doc.text(ins,mx,y+3.8+idx*3.4);
   });
 
   // Footer inside card
   doc.setFont('helvetica','bold');
   doc.setFontSize(6.5);
   doc.setTextColor(148,163,184);
-  doc.text("SPARK'26 TECHNICAL EVENTS · AUTOMATED DIGITAL PASS SYSTEM",mx+cw/2,18+cardH-5.5,{align:'center'});
+  doc.text("SPARK'26 TECHNICAL EVENTS · AUTOMATED DIGITAL PASS SYSTEM",mx+cw/2,286,{align:'center'});
 
   const filename='SPARK26_EventPass_'+p.registrationId+'.pdf';
   const blob=doc.output('blob');
