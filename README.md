@@ -1,6 +1,6 @@
 # Spark’26 — Event Registration, QR Pass & Attendance Platform
 
-The **Spark’26 CSE Symposium** website (`Spark26_RoyalBlue_Purple_Light.html`) turned into a complete,
+The **Spark’26 CSE Technical Events** website (`Spark26_RoyalBlue_Purple_Light.html`) turned into a complete,
 database-connected application. The existing royal-blue/purple frontend is preserved exactly — same
 layout, sections, animations, 3D effects, modals and typography — and every mock/localStorage
 behaviour now runs against **PostgreSQL** through a **Node.js + Express + Prisma** backend.

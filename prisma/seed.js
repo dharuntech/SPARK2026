@@ -2,7 +2,7 @@
 /**
  * Seeds the Spark'26 database:
  *   1. The first administrator, read from environment variables (ADMIN_EMAIL/ADMIN_PASSWORD).
- *   2. The eight symposium events that shipped with the original frontend (as PUBLISHED).
+ *   2. The eight events that shipped with the original frontend (as PUBLISHED).
  *
  * Safe to re-run: existing events are left untouched, and the admin password is
  * only (re)written when ADMIN_FORCE_RESET=1 is set.
@@ -14,7 +14,7 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 const IST_OFFSET_MINUTES = 330;
-const SYMPOSIUM_DATE = process.env.SEED_EVENT_DATE || '2026-10-18';
+const EVENT_DATE = process.env.SEED_EVENT_DATE || '2026-10-18';
 
 function ist(dateStr, timeStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -75,17 +75,17 @@ async function seedEvents() {
         name: e.name,
         category: e.category,
         venue: e.venue,
-        startsAt: ist(SYMPOSIUM_DATE, e.start),
-        endsAt: ist(SYMPOSIUM_DATE, e.end),
+        startsAt: ist(EVENT_DATE, e.start),
+        endsAt: ist(EVENT_DATE, e.end),
         description: e.desc,
         registrationMode: e.mode,
-        registrationDeadline: ist(SYMPOSIUM_DATE, '09:00'),
+        registrationDeadline: ist(EVENT_DATE, '09:00'),
         status: 'PUBLISHED',
       },
     });
     created += 1;
   }
-  console.log(`✔ Events: ${created} created, ${DEFAULT_EVENTS.length - created} already existed (symposium date ${SYMPOSIUM_DATE} IST)`);
+  console.log(`✔ Events: ${created} created, ${DEFAULT_EVENTS.length - created} already existed (event date ${EVENT_DATE} IST)`);
 }
 
 async function main() {

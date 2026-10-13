@@ -364,7 +364,7 @@ function drawEventCardCanvas(ev, img) {
   ctx.font = '400 16.5px "DM Sans", sans-serif';
   ctx.textBaseline = 'top';
 
-  const descText = ev.description || 'Experience cutting-edge symposium events at Spark26.';
+  const descText = ev.description || 'Experience cutting-edge events at Spark26.';
   const words = descText.split(' ');
   let line = '';
   let lineY = descY;
@@ -536,7 +536,7 @@ function updateCircularGallery(){
     id: e.id,
     image: getEventCardTexture(e, onPosterReady),
     text: e.name,
-    description: (e.categoryLabel || 'Spark\'26 Event') + ' • ' + (e.venue || 'Campus Venue') + ' • ' + (e.dateLabel || 'Symposium Day'),
+    description: (e.categoryLabel || 'Spark\'26 Event') + ' • ' + (e.venue || 'Campus Venue') + ' • ' + (e.dateLabel || 'Event Day'),
     alt: e.name + ' poster',
     category: e.category,
     categoryLabel: e.categoryLabel,
@@ -888,7 +888,7 @@ function downloadPassPdf(p){
   doc.setFont('helvetica','normal');
   doc.setFontSize(8.5);
   doc.setTextColor(199,210,254);
-  doc.text('NATIONAL LEVEL TECHNICAL SYMPOSIUM · CSE',mx+10,y+19);
+  doc.text('NATIONAL LEVEL TECHNICAL EVENT · CSE',mx+10,y+19);
 
   doc.setFont('helvetica','bold');
   doc.setFontSize(9);
@@ -1004,7 +1004,7 @@ function downloadPassPdf(p){
   doc.setFont('helvetica','normal');
   doc.setFontSize(6.5);
   doc.setTextColor(100,116,139);
-  doc.text('Scan with symposium scanner',qrColX+qrColW/2,qry+qrSize+11,{align:'center'});
+  doc.text('Scan with event scanner',qrColX+qrColW/2,qry+qrSize+11,{align:'center'});
   doc.text('at venue entrance',qrColX+qrColW/2,qry+qrSize+15,{align:'center'});
 
   // Divider line before instructions
@@ -1040,7 +1040,7 @@ function downloadPassPdf(p){
     '1. Carry this printed pass or show the QR code directly on your mobile device at the registration desk / hall entry.',
     '2. This pass is strictly non-transferable and valid solely for the participant registered under ID '+p.registrationId+'.',
     '3. Attendees must produce their official College Identity Card upon request during check-in.',
-    "4. For any queries or assistance, contact the SPARK'26 symposium help desk or event coordinators."
+    "4. For any queries or assistance, contact the SPARK'26 event help desk or event coordinators."
   ];
   instructions.forEach((ins,idx)=>{
     doc.text(ins,mx+10,y+5+idx*4.5);
@@ -1050,7 +1050,7 @@ function downloadPassPdf(p){
   doc.setFont('helvetica','bold');
   doc.setFontSize(6.5);
   doc.setTextColor(148,163,184);
-  doc.text("SPARK'26 TECHNICAL SYMPOSIUM · AUTOMATED DIGITAL PASS SYSTEM",mx+cw/2,232,{align:'center'});
+  doc.text("SPARK'26 TECHNICAL EVENTS · AUTOMATED DIGITAL PASS SYSTEM",mx+cw/2,232,{align:'center'});
 
   const filename='SPARK26_EventPass_'+p.registrationId+'.pdf';
   const blob=doc.output('blob');
@@ -1074,7 +1074,7 @@ try{
   toast('Pass restored',d.count+(d.count===1?' registration':' registrations')+' linked to this device.');
 }catch(ex){msg.textContent=ex.message}
 finally{btn.disabled=false;btn.textContent=label}});
-function showInfo(title,lead,body){$('infoTitle').textContent=title;$('infoLead').textContent=lead;$('infoBody').innerHTML=body;$('infoOverlay').classList.add('show');$('infoOverlay').setAttribute('aria-hidden','false')}function closeInfo(){$('infoOverlay').classList.remove('show');$('infoOverlay').setAttribute('aria-hidden','true')}function openLogin(){$('loginError').textContent='';$('loginPassword').value='';$('loginOverlay').classList.add('show');$('loginOverlay').setAttribute('aria-hidden','false');setTimeout(()=>$('loginPassword').focus(),50)}function closeLogin(){$('loginOverlay').classList.remove('show');$('loginOverlay').setAttribute('aria-hidden','true')}$('closeInfo').onclick=closeInfo;$('closeLogin').onclick=closeLogin;$('infoOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeInfo()});$('loginOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLogin()});$('navAdmin').onclick=async()=>{if(await restoreSession())await openAdmin();else openLogin()};$('forgotBtn').onclick=()=>showInfo('Password reset','Protected admin access','<div class="notice">Admin passwords are reset by the symposium coordinator with <b>npm run admin:create -- --email … --rotate</b> (see README). There is no public password-reset endpoint by design.</div>');
+function showInfo(title,lead,body){$('infoTitle').textContent=title;$('infoLead').textContent=lead;$('infoBody').innerHTML=body;$('infoOverlay').classList.add('show');$('infoOverlay').setAttribute('aria-hidden','false')}function closeInfo(){$('infoOverlay').classList.remove('show');$('infoOverlay').setAttribute('aria-hidden','true')}function openLogin(){$('loginError').textContent='';$('loginPassword').value='';$('loginOverlay').classList.add('show');$('loginOverlay').setAttribute('aria-hidden','false');setTimeout(()=>$('loginPassword').focus(),50)}function closeLogin(){$('loginOverlay').classList.remove('show');$('loginOverlay').setAttribute('aria-hidden','true')}$('closeInfo').onclick=closeInfo;$('closeLogin').onclick=closeLogin;$('infoOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeInfo()});$('loginOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLogin()});$('navAdmin').onclick=async()=>{if(await restoreSession())await openAdmin();else openLogin()};$('forgotBtn').onclick=()=>showInfo('Password reset','Protected admin access','<div class="notice">Admin passwords are reset by the event coordinator with <b>npm run admin:create -- --email … --rotate</b> (see README). There is no public password-reset endpoint by design.</div>');
 /* ═══════════════════════ ADMIN WORKSPACE (PostgreSQL backed) ═══════════════════════ */
 let adminEvents=[],adminRegRows=[],adminSelectedEvent='',adminBusy=false;
 let html5Scanner=null,lastScan={code:'',at:0},scanEventId='';
@@ -1160,16 +1160,56 @@ async function loadParticipants(){
     $('participantMeta').textContent=d.event.dateLabel+' · '+d.event.timeLabel+' · '+d.event.venue+' · '+d.event.modeLabel;
     $('participantCount').textContent=d.pagination.total+' registered · '+d.event.presentCount+' present';
     const rows=d.registrations;
-    box.innerHTML=rows.length?rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+esc(r.registrationId)+'</strong><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td>'+esc(r.name)+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'</td><td>'+esc(r.registerNumber)+'</td><td>'+esc(r.department)+'</td><td>'+esc(r.academicYear)+'</td><td>'+esc(r.section)+'</td><td>'+esc(r.email)+'</td><td>'+esc(r.createdAtLabel)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span>'+(r.checkedInAtLabel?'<br><span class="muted">'+esc(r.checkedInAtLabel)+'</span>':'')+'</td><td><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-toggle-att="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Mark pending':'Mark present')+'</button></td></tr>').join(''):'<tr><td colspan="12" class="muted">No students registered for this event yet.</td></tr>';
+    box.innerHTML=rows.length?rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+esc(r.registrationId)+'</strong><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td>'+esc(r.name)+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'</td><td>'+esc(r.registerNumber)+'</td><td>'+esc(r.department)+'</td><td>'+esc(r.academicYear)+'</td><td>'+esc(r.section)+'</td><td>'+esc(r.email)+'</td><td>'+esc(r.createdAtLabel)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span>'+(r.checkedInAtLabel?'<br><span class="muted">'+esc(r.checkedInAtLabel)+'</span>':'')+'</td><td><div class="table-actions" style="display:flex;gap:6px;align-items:center"><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-toggle-att="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Mark pending':'Mark present')+'</button><button class="mini danger" data-del-reg="'+esc(r.dbId)+'" data-del-name="'+esc(r.name)+'" data-del-code="'+esc(r.registrationId)+'" data-del-event="'+esc(r.eventName)+'" title="Delete registration">Delete</button></div></td></tr>').join(''):'<tr><td colspan="12" class="muted">No students registered for this event yet.</td></tr>';
   }catch(ex){box.innerHTML='<tr><td colspan="12" class="muted">'+esc(ex.message)+'</td></tr>'}
 }
 /* ── global registration list ── */
 function renderRegsTable(){
   const q=$('regSearch').value.trim().toLowerCase(),filter=$('regEventFilter').value;
   const list=adminRegRows.filter(r=>(filter==='ALL'||r.eventId===filter)&&(!q||[r.registrationId,r.name,r.email,r.registerNumber,r.eventName].join(' ').toLowerCase().includes(q)));
-  $('regsTable').innerHTML=list.length?list.map(r=>'<tr><td><strong>'+esc(r.name)+'</strong>'+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'<br><span class="muted">'+esc(r.email)+'</span></td><td>'+esc(r.eventName)+'<br><span class="muted">'+esc(r.registrationId)+'</span></td><td>'+esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br>'+esc(r.registerNumber)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-att-row="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Verified':'Verify')+'</button></td></tr>').join(''):'<tr><td colspan="5" class="muted">No registrations match the selected filters.</td></tr>';
+  $('regsTable').innerHTML=list.length?list.map(r=>'<tr><td><strong>'+esc(r.name)+'</strong>'+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'<br><span class="muted">'+esc(r.email)+'</span></td><td>'+esc(r.eventName)+'<br><span class="muted">'+esc(r.registrationId)+'</span></td><td>'+esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br>'+esc(r.registerNumber)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td><div class="table-actions" style="display:flex;gap:6px;align-items:center"><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-att-row="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Verified':'Verify')+'</button><button class="mini danger" data-del-reg="'+esc(r.dbId)+'" data-del-name="'+esc(r.name)+'" data-del-code="'+esc(r.registrationId)+'" data-del-event="'+esc(r.eventName)+'" title="Delete registration">Delete</button></div></td></tr>').join(''):'<tr><td colspan="5" class="muted">No registrations match the selected filters.</td></tr>';
 }
+/* ── delete confirmation modal & actions ── */
+let pendingDelete=null;
+function openDeleteConfirm(item){
+  pendingDelete=item;
+  if($('delStudentName'))$('delStudentName').textContent=item.name||'Unknown Student';
+  if($('delRegistrationCode'))$('delRegistrationCode').textContent=item.code||'';
+  if($('delEventName'))$('delEventName').textContent=item.event||'';
+  const confirmBtn=$('confirmDeleteBtn'),cancelBtn=$('cancelDeleteBtn');
+  if(confirmBtn){confirmBtn.disabled=false;confirmBtn.textContent='Confirm Delete'}
+  if(cancelBtn)cancelBtn.disabled=false;
+  if($('deleteConfirmOverlay')){$('deleteConfirmOverlay').classList.add('show');$('deleteConfirmOverlay').setAttribute('aria-hidden','false')}
+}
+function closeDeleteConfirm(){
+  if($('deleteConfirmOverlay')){$('deleteConfirmOverlay').classList.remove('show');$('deleteConfirmOverlay').setAttribute('aria-hidden','true')}
+  pendingDelete=null;
+}
+if($('closeDeleteConfirm'))$('closeDeleteConfirm').onclick=closeDeleteConfirm;
+if($('cancelDeleteBtn'))$('cancelDeleteBtn').onclick=closeDeleteConfirm;
+if($('deleteConfirmOverlay'))$('deleteConfirmOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeDeleteConfirm()});
+if($('confirmDeleteBtn'))$('confirmDeleteBtn').onclick=async()=>{
+  if(!pendingDelete||!pendingDelete.id)return;
+  const btn=$('confirmDeleteBtn'),cancelBtn=$('cancelDeleteBtn');
+  if(btn){btn.disabled=true;btn.textContent='Deleting…'}
+  if(cancelBtn)cancelBtn.disabled=true;
+  try{
+    const res=await api('/api/admin/registrations/'+encodeURIComponent(pendingDelete.id),{method:'DELETE'});
+    toast('Registration deleted','Removed '+(pendingDelete.code||'registration')+'.');
+    closeDeleteConfirm();
+    await Promise.all([loadParticipants(),refreshAdmin(),refreshCounts(),refreshPassesFromServer()]);
+  }catch(ex){
+    toast('Deletion failed',ex.message||'Could not delete registration.');
+    if(btn){btn.disabled=false;btn.textContent='Confirm Delete'}
+    if(cancelBtn)cancelBtn.disabled=false;
+  }
+};
 $('regsTable').addEventListener('click',async e=>{
+  const delBtn=e.target.closest('[data-del-reg]');
+  if(delBtn){
+    openDeleteConfirm({id:delBtn.dataset.delReg,name:delBtn.dataset.delName,code:delBtn.dataset.delCode,event:delBtn.dataset.delEvent,triggerButton:delBtn});
+    return;
+  }
   const b=e.target.closest('[data-att-row]');if(!b)return;
   b.disabled=true;
   try{const d=await api('/api/admin/registrations/'+encodeURIComponent(b.dataset.attRow)+'/attendance',{method:'PATCH',body:{attendanceStatus:b.dataset.next}});
@@ -1178,6 +1218,11 @@ $('regsTable').addEventListener('click',async e=>{
   catch(ex){toast('Update failed',ex.message)}finally{b.disabled=false}
 });
 $('participantsBody').addEventListener('click',async e=>{
+  const delBtn=e.target.closest('[data-del-reg]');
+  if(delBtn){
+    openDeleteConfirm({id:delBtn.dataset.delReg,name:delBtn.dataset.delName,code:delBtn.dataset.delCode,event:delBtn.dataset.delEvent,triggerButton:delBtn});
+    return;
+  }
   const b=e.target.closest('[data-toggle-att]');if(!b)return;
   b.disabled=true;
   try{const d=await api('/api/admin/registrations/'+encodeURIComponent(b.dataset.toggleAtt)+'/attendance',{method:'PATCH',body:{attendanceStatus:b.dataset.next}});
@@ -1474,8 +1519,8 @@ function renderHomeGallery(imgs){
     return;
   }
   grid.innerHTML = list.map((src, i) =>
-    '<div class="showcase-card" data-lightbox-src="'+esc(src)+'" data-lightbox-title="Symposium Poster '+(i+1)+'">'
-    + '<img src="'+esc(src)+'" alt="Symposium Poster '+(i+1)+'" loading="lazy">'
+    '<div class="showcase-card" data-lightbox-src="'+esc(src)+'" data-lightbox-title="Event Poster '+(i+1)+'">'
+    + '<img src="'+esc(src)+'" alt="Event Poster '+(i+1)+'" loading="lazy">'
     + '<div class="zoom-pill">🔍 Tap full screen</div>'
     + '</div>'
   ).join('');

@@ -120,4 +120,21 @@ router.get(
   })
 );
 
+/** DELETE /api/admin/registrations/:id — permanently delete an individual registration record (admin only). */
+router.delete(
+  '/registrations/:id',
+  adminMutationLimiter,
+  csrfProtection,
+  requireRole('SUPERADMIN', 'ADMIN'),
+  asyncHandler(async (req, res) => {
+    const deleted = await registrationsService.deleteRegistration({
+      id: req.params.id,
+      adminId: req.admin.id,
+      ip: req.ip,
+    });
+    res.json({ ok: true, message: 'Registration deleted successfully.', deleted });
+  })
+);
+
 module.exports = router;
+

@@ -321,9 +321,66 @@ async function eventSummaries() {
   return events.map((e) => shapeEvent(e, { ...(counts.get(e.id) || {}), now }));
 }
 
+/** Permanently deletes a single registration, safely cleaning up any team settings and leaving other registrations intact. */
+async function deleteRegistration({ id, adminId, ip = null }) {
+  if (!id || typeof id !== 'string') {
+    throw ApiError.badRequest('Invalid registration identifier.');
+  }
+  const cleanId = id.trim();
+
+  const registration = await prisma.registration.findFirst({
+    where: {
+      OR: [
+        { id: cleanId },
+        { registrationId: cleanId },
+      ],
+    },
+    include: registrationInclude,
+  });
+
+  if (!registration) {
+    throw ApiError.notFound('Registration not found.');
+  }
+
+  // Safely clean up team metadata associated with this registration in SiteSetting
+  try {
+    await prisma.siteSetting.deleteMany({
+      where: { key: 'team_' + registration.registrationId },
+    });
+  } catch (_) {}
+
+  // Delete the registration record
+  await prisma.registration.delete({
+    where: { id: registration.id },
+  });
+
+  // Record audit log
+  await audit({
+    adminId,
+    action: 'registration.deleted',
+    entityType: 'Registration',
+    entityId: registration.registrationId,
+    metadata: {
+      eventId: registration.eventId,
+      eventCode: registration.event ? registration.event.code : null,
+      studentId: registration.studentId,
+    },
+    ip,
+  });
+
+  return {
+    id: registration.id,
+    registrationId: registration.registrationId,
+    eventId: registration.eventId,
+    studentName: registration.student ? registration.student.name : '',
+    eventName: registration.event ? registration.event.name : '',
+  };
+}
+
 module.exports = {
   createRegistration,
   listRegistrations,
+  deleteRegistration,
   findPassByToken,
   findPassesByStudent,
   shapeRegistrationRow,
@@ -331,3 +388,4 @@ module.exports = {
   resolveStudent,
   DUPLICATE_MESSAGE,
 };
+

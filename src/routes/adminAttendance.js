@@ -51,7 +51,7 @@ router.patch(
   })
 );
 
-/** GET /api/admin/attendance/summary — totals for one event or the whole symposium. */
+/** GET /api/admin/attendance/summary — totals for one event or the whole event platform. */
 router.get(
   '/attendance/summary',
   asyncHandler(async (req, res) => {

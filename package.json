@@ -2,7 +2,7 @@
   "name": "spark26",
   "version": "1.0.0",
   "private": true,
-  "description": "Spark'26 CSE Symposium - registration, QR pass, attendance & Excel export platform",
+  "description": "Spark'26 CSE Technical Events - registration, QR pass, attendance & Excel export platform",
   "main": "src/server.js",
   "scripts": {
     "build": "prisma generate && node scripts/build-gallery.js",
