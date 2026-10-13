@@ -24,7 +24,7 @@ if(!res.ok||data.ok===false){const e=apiError(data,res.status);e.data=data;throw
 return data}
 function rememberPass(p){if(!p||!p.qr||!p.qr.token)return;const list=store.get(LS_TOKENS,[]).filter(t=>t!==p.qr.token);list.unshift(p.qr.token);store.set(LS_TOKENS,list.slice(0,20))}
 function trackPass(p){passes=[p,...passes.filter(x=>x.registrationId!==p.registrationId)];passIndex=0;rememberPass(p)}
-function prefillStudent(){const s=store.get(LS_STUDENT,null);if(!s)return;if(!$('rName').value)$('rName').value=s.name||'';if(!$('rRegno').value)$('rRegno').value=s.registerNumber||'';if(!$('rDept').value)$('rDept').value=s.department||'';if(!$('rYear').value&&s.academicYear)$('rYear').value=s.academicYear;if(!$('rSection').value)$('rSection').value=s.section||'';if(!$('rEmail').value)$('rEmail').value=s.email||''}
+function prefillStudent(){const s=store.get(LS_STUDENT,null);if(!s)return;if(!$('rName').value)$('rName').value=s.name||'';if(!$('rRegno').value)$('rRegno').value=s.registerNumber||'';if(!$('rDept').value)$('rDept').value=s.department||'';if(!$('rYear').value&&s.academicYear&&['I','II','III','IV'].includes(s.academicYear))$('rYear').value=s.academicYear;if(!$('rSection').value)$('rSection').value=s.section||'';if(!$('rEmail').value)$('rEmail').value=s.email||''}
 function downloadBlob(blob,filename){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 async function downloadFile(url,fallbackName){const res=await api(url,{download:true});const cd=res.headers.get('Content-Disposition')||'';const m=/filename="?([^";]+)"?/.exec(cd);const blob=await res.blob();const name=m?m[1]:fallbackName;downloadBlob(blob,name);return name}
 const sections=[0,1,2,3,4,5].map(i=>$('s'+i));
@@ -64,7 +64,7 @@ if(isMobile){
 }
 if(i===0){window.__resumePrism&&window.__resumePrism();window.__wakeOrbs&&window.__wakeOrbs()}
 }
-document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>{if(currentSection===0){window.location.reload()}else{go(0)}});document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){if(currentSection===0)window.location.reload();else go(0)}});$('heroEvents')?.addEventListener('click',()=>go(1));const nr=$('navReg');if(nr)nr.onclick=()=>{if(selectedId&&eventById(selectedId)){updateSelected();go(2)}else if(events&&events.length){selectEvent(events[0]);go(2)}else{go(2)}};window.sparkGo=go;
+document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>{if(currentSection===0){window.location.reload()}else{go(0)}});document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){if(currentSection===0)window.location.reload();else go(0)}});$('heroEvents')?.addEventListener('click',()=>go(1));const nr=$('navReg');if(nr)nr.onclick=()=>{if(selectedId&&eventById(selectedId)){updateSelected();go(2)}else if(events&&events.length){selectEvent(events[0]);go(2)}else{go(2)}};window.sparkGo=go;window.sparkSelectEvent=selectEvent;window.sparkEvents=()=>events;
 (function(){
 const blocked = t => {
   if (!t) return false;
@@ -583,6 +583,162 @@ $('eventGrid').addEventListener('click',e=>{const r=e.target.closest('[data-reg]
 if(r){if(r.disabled)return;const ev=eventById(r.dataset.reg);if(!ev)return;if(!ev.registrationOpen){showInfo(ev.name,'Registration closed','<div class="notice">'+esc(ev.closedMessage||'Registration is closed for this event.')+'</div>');return}selectEvent(ev);go(2)}
 if(d){const ev=eventById(d.dataset.info);if(!ev)return;openEventDetails(ev);}});
 function selectEvent(ev){if(!ev)return;selectedId=ev.id;updateSelected()}
+
+let currentTeamMembers = [];
+
+function getEventTeamRules(ev){
+  if(!ev) return { min: 1, max: 3, name: 'Event', hint: 'Individual or team of up to 3 members.' };
+  const norm = String(ev.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const code = String(ev.code || '').toUpperCase();
+  if(norm.includes('neuroforge') || norm.includes('neuraforge')){
+    return {
+      name: 'NeuroForge',
+      min: 3,
+      max: 4,
+      reqMinAdditional: 2,
+      maxAdditional: 3,
+      hint: 'NeuroForge team rules: Minimum 3 members, maximum 4 members (4th member is optional).'
+    };
+  }
+  if(norm.includes('auragen')){
+    return {
+      name: 'AuraGen',
+      min: 1,
+      max: 3,
+      reqMinAdditional: 0,
+      maxAdditional: 2,
+      hint: 'AuraGen team rules: Maximum 3 members (1, 2, or 3 members only — 4th member not allowed).'
+    };
+  }
+  if(norm.includes('creovate')){
+    return {
+      name: 'Creovate',
+      min: 1,
+      max: 3,
+      reqMinAdditional: 0,
+      maxAdditional: 2,
+      hint: 'Creovate team rules: 1, 2, or 3 members allowed (minimum 1, maximum 3).'
+    };
+  }
+  if(norm.includes('capturetheflag') || norm.includes('ctf') || code === 'E03'){
+    return {
+      name: 'Capture the Flag',
+      min: 1,
+      max: 3,
+      reqMinAdditional: 0,
+      maxAdditional: 2,
+      hint: 'Capture the Flag team rules: 1, 2, or 3 members allowed (minimum 1, maximum 3).'
+    };
+  }
+  return {
+    name: ev.name || 'Event',
+    min: 1,
+    max: 3,
+    reqMinAdditional: 0,
+    maxAdditional: 2,
+    hint: 'Team rules: 1, 2, or 3 members allowed.'
+  };
+}
+
+function saveTeamInputsToState(){
+  const cards = document.querySelectorAll('#teamMembersList [data-member-idx]');
+  cards.forEach(card => {
+    const idx = +card.dataset.memberIdx;
+    if(currentTeamMembers[idx]){
+      currentTeamMembers[idx].name = card.querySelector('.m-name')?.value || '';
+      currentTeamMembers[idx].registerNumber = card.querySelector('.m-regno')?.value || '';
+      currentTeamMembers[idx].department = card.querySelector('.m-dept')?.value || '';
+      currentTeamMembers[idx].academicYear = card.querySelector('.m-year')?.value || '';
+    }
+  });
+}
+
+function renderTeamForm(){
+  const ev = eventById(selectedId) || events[0] || null;
+  const rules = getEventTeamRules(ev);
+  const total = 1 + currentTeamMembers.length;
+  if($('teamRulesLabel')) $('teamRulesLabel').textContent = rules.name + ' Team Members (Lead + ' + currentTeamMembers.length + ' = ' + total + ')';
+  if($('teamRulesHint')) $('teamRulesHint').textContent = rules.hint;
+
+  const btn = $('addMemberBtn');
+  if(btn){
+    if(total >= rules.max){
+      btn.disabled = true;
+      btn.textContent = '+ Add Member (Max ' + rules.max + ')';
+      btn.title = 'Maximum team size reached for ' + rules.name;
+    }else{
+      btn.disabled = false;
+      btn.textContent = '+ Add Member';
+      btn.title = '';
+    }
+  }
+
+  const list = $('teamMembersList');
+  if(!list) return;
+  if(!currentTeamMembers.length){
+    list.innerHTML = (rules.min > 1)
+      ? '<div class="notice" style="font-size:12px;padding:8px 12px">This event requires at least ' + rules.min + ' members. Click "+ Add Member" to add team members.</div>'
+      : '<div class="helper" style="font-size:12px;color:var(--muted)">No additional members added (individual registration). Click "+ Add Member" to form a team.</div>';
+    return;
+  }
+
+  list.innerHTML = currentTeamMembers.map((m, idx) => {
+    const memNum = idx + 2;
+    const isRequired = memNum <= rules.min;
+    return '<div class="card" data-member-idx="' + idx + '" style="background:rgba(255,255,255,.9);border:1px solid rgba(87,189,232,.3);border-radius:14px;padding:12px 14px;margin-top:4px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+        '<strong style="font-size:12px;color:var(--ink)">Member ' + memNum + ' ' + (isRequired ? '<span style="color:#d44969;font-size:10px;font-weight:700">(Required)</span>' : '<span style="color:#159873;font-size:10px;font-weight:600">(Optional)</span>') + '</strong>' +
+        '<button type="button" class="mini danger remove-member-btn" data-remove-idx="' + idx + '" style="padding:3px 10px;font-size:10px;border-radius:999px">Remove</button>' +
+      '</div>' +
+      '<div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">' +
+        '<div class="field"><label class="label">Full name</label><input class="m-name" required placeholder="Member name" value="' + esc(m.name || '') + '"></div>' +
+        '<div class="field"><label class="label">Register number</label><input class="m-regno" required placeholder="Member Reg.No" value="' + esc(m.registerNumber || '') + '"></div>' +
+        '<div class="field"><label class="label">Department</label><input class="m-dept" placeholder="CSE" value="' + esc(m.department || '') + '"></div>' +
+        '<div class="field"><label class="label">Year</label><select class="m-year"><option value="" disabled' + (!m.academicYear ? ' selected' : '') + '>Select Year</option><option value="I"' + (m.academicYear === 'I' ? ' selected' : '') + '>I</option><option value="II"' + (m.academicYear === 'II' ? ' selected' : '') + '>II</option><option value="III"' + (m.academicYear === 'III' ? ' selected' : '') + '>III</option></select></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function syncTeamForEvent(ev){
+  const rules = getEventTeamRules(ev);
+  if(rules.name === 'NeuroForge'){
+    while(currentTeamMembers.length < 2){
+      currentTeamMembers.push({ name: '', registerNumber: '', department: '', academicYear: '', section: '' });
+    }
+  }
+  const maxAdd = rules.max - 1;
+  if(currentTeamMembers.length > maxAdd){
+    currentTeamMembers = currentTeamMembers.slice(0, maxAdd);
+  }
+  renderTeamForm();
+}
+
+if($('addMemberBtn')){
+  $('addMemberBtn').onclick = () => {
+    saveTeamInputsToState();
+    const ev = eventById(selectedId) || events[0] || null;
+    const rules = getEventTeamRules(ev);
+    if(1 + currentTeamMembers.length >= rules.max) return;
+    currentTeamMembers.push({ name: '', registerNumber: '', department: '', academicYear: '', section: '' });
+    renderTeamForm();
+  };
+}
+
+if($('teamMembersList')){
+  $('teamMembersList').addEventListener('click', e => {
+    const rm = e.target.closest('[data-remove-idx]');
+    if(!rm) return;
+    saveTeamInputsToState();
+    const idx = +rm.dataset.removeIdx;
+    currentTeamMembers.splice(idx, 1);
+    renderTeamForm();
+  });
+  $('teamMembersList').addEventListener('input', () => {
+    saveTeamInputsToState();
+  });
+}
+
 function updateSelected(){const e=eventById(selectedId)||events[0]||null;
 if(!e){$('selectedTitle').textContent='Choose an event';$('selectedMeta').textContent='No published events are available right now.';return}
 selectedId=e.id;$('selectedTitle').textContent=e.name;
@@ -590,7 +746,9 @@ $('selectedMeta').textContent=e.categoryLabel+' · '+e.venue+' · '+e.dateLabel+
 $('regSubmit').disabled=!e.registrationOpen;
 $('regSubmit').textContent=e.registrationOpen?'Generate my pass':'Registration closed';
 $('regError').textContent=e.registrationOpen?'':(e.closedMessage||'');
-prefillStudent()}
+prefillStudent();
+syncTeamForEvent(e);}
+
 $('regForm').addEventListener('submit',async e=>{
 e.preventDefault();
 const form=e.currentTarget,err=$('regError'),btn=$('regSubmit'),label=btn.textContent;
@@ -599,13 +757,42 @@ if(!form.checkValidity()){err.textContent='Please complete every field with vali
 const ev=eventById(selectedId);
 if(!ev){err.textContent='Please choose an event from the Events page.';go(1);return}
 if(!ev.registrationOpen){err.textContent=ev.closedMessage||'Registration is closed for this event.';return}
-const payload={eventId:ev.id,name:$('rName').value.trim(),registerNumber:$('rRegno').value.trim(),department:$('rDept').value.trim(),academicYear:$('rYear').value,section:$('rSection').value.trim(),email:$('rEmail').value.trim()};
+
+const yearVal = $('rYear').value;
+if(!yearVal || yearVal === 'Select Year' || yearVal === 'Select'){
+  err.textContent = 'Please choose a valid Year before generating your pass.';
+  $('rYear').focus();
+  return;
+}
+
+saveTeamInputsToState();
+const rules = getEventTeamRules(ev);
+const validMembers = currentTeamMembers.filter(m => (m.name || '').trim() || (m.registerNumber || '').trim());
+const totalMembers = 1 + validMembers.length;
+
+if(totalMembers < rules.min){
+  err.textContent = rules.name + ' requires at least ' + rules.min + ' members (minimum ' + rules.min + ', maximum ' + rules.max + '). Currently: ' + totalMembers + ' member' + (totalMembers === 1 ? '' : 's') + '.';
+  return;
+}
+if(totalMembers > rules.max){
+  err.textContent = rules.name + ' allows a maximum of ' + rules.max + ' members. Currently: ' + totalMembers + '.';
+  return;
+}
+for(let idx = 0; idx < validMembers.length; idx++){
+  const m = validMembers[idx];
+  if(!m.name.trim() || !m.registerNumber.trim()){
+    err.textContent = 'Please provide both Full Name and Register Number for Member ' + (idx + 2) + '.';
+    return;
+  }
+}
+
+const payload={eventId:ev.id,name:$('rName').value.trim(),registerNumber:$('rRegno').value.trim(),department:$('rDept').value.trim(),academicYear:yearVal,section:$('rSection').value.trim(),email:$('rEmail').value.trim(),teamMembers:validMembers};
 btn.disabled=true;btn.textContent='Creating your pass…';
 try{
   const data=await api('/api/registrations',{method:'POST',body:payload});
   trackPass(data.pass);
   store.set(LS_STUDENT,{name:payload.name,registerNumber:payload.registerNumber,department:payload.department,academicYear:payload.academicYear,section:payload.section,email:payload.email});
-  form.reset();prefillStudent();
+  form.reset();prefillStudent();currentTeamMembers=[];syncTeamForEvent(ev);
   await loadEvents();
   go(3);renderPass();
   updateSelected();
@@ -615,20 +802,54 @@ try{
   err.textContent=ex.message||'Registration failed.';
   if(ex.code==='DUPLICATE_REGISTRATION'&&ex.details&&ex.details.registrationId){err.textContent+=' Existing pass: '+ex.details.registrationId+'.';}
 }finally{btn.disabled=false;btn.textContent=(ev&&ev.registrationOpen)?'Generate my pass':'Registration closed'}});
+
 async function loadPasses(){const tokens=store.get(LS_TOKENS,[]);if(!tokens.length){passes=[];return passes}
 const out=[];
 for(const t of tokens){try{const d=await api('/api/passes/token/'+encodeURIComponent(t));out.push(d.pass)}catch(err){if(err.status===404)continue;throw err}}
 passes=out;store.set(LS_TOKENS,out.map(p=>p.qr.token));if(passIndex>=passes.length)passIndex=0;return passes}
-async function updatePass(){try{if(!passes.length)await loadPasses()}catch(err){toast('Pass unavailable',err.message)}renderPass()}
-function renderPassChips(){const box=$('passSwitcher');if(!box)return;box.innerHTML=passes.length>1?passes.map((p,i)=>'<button class="mini'+(i===passIndex?' primary':'')+'" data-pass="'+i+'">'+esc(p.event.name)+'</button>').join(''):'';box.classList.toggle('hidden',passes.length<2)}
+
+async function updatePass(){
+  try{
+    if(!passes.length)await loadPasses();
+    if(!passes.length){
+      const s=store.get(LS_STUDENT,null);
+      if(s&&s.registerNumber&&s.email){
+        try{
+          const d=await api('/api/passes/lookup',{method:'POST',body:{registerNumber:s.registerNumber,email:s.email}});
+          if(d&&d.passes&&d.passes.length){
+            d.passes.forEach(rememberPass);
+            passes=d.passes;
+          }
+        }catch(_){}
+      }
+    }
+  }catch(err){
+    toast('Pass unavailable',err.message);
+  }
+  if(selectedId&&passes.length){
+    const matchIdx=passes.findIndex(p=>p.event.id===selectedId||p.event.code===selectedId||(p.event.name&&p.event.name.toLowerCase()===selectedId.toLowerCase()));
+    if(matchIdx!==-1)passIndex=matchIdx;
+  }
+  if(passIndex>=passes.length||passIndex<0)passIndex=0;
+  renderPass();
+}
+
+function renderPassChips(){const box=$('passSwitcher');if(!box)return;box.innerHTML=passes.length>1?passes.map((p,i)=>'<button class="mini'+(i===passIndex?' primary':'')+'" data-pass="'+i+'" type="button">'+esc(p.event.name)+'</button>').join(''):'';box.classList.toggle('hidden',passes.length<2)}
+
 function renderPass(){const ids=['passEvent','passId','passName','passReg','passCategory','passVenue','passTime','passAttendance'],qr=$('qr'),p=passes[passIndex]||null;
 renderPassChips();
-if(!p){ids.forEach(id=>$(id).textContent=id==='passEvent'?'No registration yet':'—');$('passStatus').textContent='NO PASS';$('passHint').innerHTML='Register for an event to receive a genuine, scannable QR pass — or restore an existing pass with your register number and email below.';qr.classList.remove('has-image');qr.innerHTML='';$('downloadQr').disabled=true;if($('downloadPdf'))$('downloadPdf').disabled=true;return}
+if(!p){ids.forEach(id=>$(id).textContent=id==='passEvent'?'No registered events found':'—');$('passStatus').textContent='NO PASS';$('passHint').innerHTML='No registered events found. Register for an event to receive a genuine, scannable QR pass — or restore an existing pass with your register number and email below.';qr.classList.remove('has-image');qr.innerHTML='';$('downloadQr').disabled=true;if($('downloadPdf'))$('downloadPdf').disabled=true;return}
 $('passEvent').textContent=p.event.name;$('passId').textContent=p.registrationId;$('passName').textContent=p.student.name;$('passReg').textContent=p.student.registerNumber;
 $('passCategory').textContent=p.event.categoryLabel;$('passVenue').textContent=p.event.venue;$('passTime').textContent=p.event.dateLabel+' · '+p.event.timeLabel;
 $('passAttendance').textContent=p.attendanceVerified?('PRESENT · '+p.checkedInAtLabel):p.attendanceStatus;
 $('passStatus').textContent=p.attendanceVerified?'ATTENDANCE VERIFIED':'QR READY';
-$('passHint').innerHTML='Registered '+esc(p.createdAtLabel)+' IST · '+esc(p.sourceLabel)+'<br>'+esc(p.student.department)+' · Year '+esc(p.student.academicYear)+' · Section '+esc(p.student.section)+(p.attendanceVerified?'<br>Checked in: '+esc(p.checkedInAtLabel):'');
+
+let teamDetails='';
+if(p.teamMembers&&p.teamMembers.length){
+  teamDetails='<br><strong>Team ('+(p.teamMembers.length+1)+'):</strong> '+esc(p.student.name)+' (Lead), '+esc(p.teamMembers.map(m=>m.name+' ('+m.registerNumber+')').join(', '));
+}
+
+$('passHint').innerHTML='Registered '+esc(p.createdAtLabel)+' IST · '+esc(p.sourceLabel)+'<br>'+esc(p.student.department)+' · Year '+esc(p.student.academicYear)+' · Section '+esc(p.student.section)+teamDetails+(p.attendanceVerified?'<br>Checked in: '+esc(p.checkedInAtLabel):'');
 qr.classList.add('has-image');
 qr.innerHTML='<img alt="QR pass '+esc(p.registrationId)+'" src="'+p.qr.svgDataUrl+'">';
 $('downloadQr').disabled=false;if($('downloadPdf'))$('downloadPdf').disabled=false}
@@ -792,8 +1013,21 @@ function downloadPassPdf(p){
   doc.setLineWidth(0.4);
   doc.line(mx+8,y,mx+cw-8,y);
 
-  // Instructions & Guidelines
+  // Important Guidelines & Team Members
   y+=7;
+  if (p.teamMembers && p.teamMembers.length) {
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(30,41,59);
+    doc.text('REGISTERED TEAM MEMBERS ('+(p.teamMembers.length+1)+'):',mx+10,y);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7);
+    doc.setTextColor(71,85,105);
+    const mStr='Lead: '+p.student.name+' ('+p.student.registerNumber+') | Members: '+p.teamMembers.map(m=>m.name+' ('+m.registerNumber+')').join(', ');
+    doc.text(mStr,mx+10,y+4.5,{maxWidth:cw-20});
+    y+=10;
+  }
+
   doc.setFont('helvetica','bold');
   doc.setFontSize(8);
   doc.setTextColor(71,85,105);
@@ -826,7 +1060,7 @@ function downloadPassPdf(p){
 $('refreshPass').onclick=async()=>{passes=[];await updatePass();toast('Pass refreshed','Attendance status was re-checked with the server.')};
 $('downloadQr').onclick=()=>{const p=passes[passIndex];if(!p)return;const a=document.createElement('a');a.href=p.qr.pngDataUrl;a.download='Spark26_Pass_'+p.registrationId+'.png';document.body.appendChild(a);a.click();a.remove()};
 if($('downloadPdf'))$('downloadPdf').onclick=()=>{const p=passes[passIndex];if(!p)return;downloadPassPdf(p)};
-$('passSwitcher').addEventListener('click',e=>{const b=e.target.closest('[data-pass]');if(!b)return;passIndex=+b.dataset.pass;renderPass()});
+$('passSwitcher').addEventListener('click',e=>{const b=e.target.closest('[data-pass]');if(!b)return;passIndex=+b.dataset.pass;if(passes[passIndex])selectedId=passes[passIndex].event.id;renderPass()});
 $('passLookupForm').addEventListener('submit',async e=>{
 e.preventDefault();
 const msg=$('passLookupMsg'),btn=$('passLookupBtn'),label=btn.textContent;
@@ -926,14 +1160,14 @@ async function loadParticipants(){
     $('participantMeta').textContent=d.event.dateLabel+' · '+d.event.timeLabel+' · '+d.event.venue+' · '+d.event.modeLabel;
     $('participantCount').textContent=d.pagination.total+' registered · '+d.event.presentCount+' present';
     const rows=d.registrations;
-    box.innerHTML=rows.length?rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+esc(r.registrationId)+'</strong><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td>'+esc(r.name)+'</td><td>'+esc(r.registerNumber)+'</td><td>'+esc(r.department)+'</td><td>'+esc(r.academicYear)+'</td><td>'+esc(r.section)+'</td><td>'+esc(r.email)+'</td><td>'+esc(r.createdAtLabel)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span>'+(r.checkedInAtLabel?'<br><span class="muted">'+esc(r.checkedInAtLabel)+'</span>':'')+'</td><td><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-toggle-att="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Mark pending':'Mark present')+'</button></td></tr>').join(''):'<tr><td colspan="12" class="muted">No students registered for this event yet.</td></tr>';
+    box.innerHTML=rows.length?rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+esc(r.registrationId)+'</strong><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td>'+esc(r.name)+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'</td><td>'+esc(r.registerNumber)+'</td><td>'+esc(r.department)+'</td><td>'+esc(r.academicYear)+'</td><td>'+esc(r.section)+'</td><td>'+esc(r.email)+'</td><td>'+esc(r.createdAtLabel)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span>'+(r.checkedInAtLabel?'<br><span class="muted">'+esc(r.checkedInAtLabel)+'</span>':'')+'</td><td><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-toggle-att="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Mark pending':'Mark present')+'</button></td></tr>').join(''):'<tr><td colspan="12" class="muted">No students registered for this event yet.</td></tr>';
   }catch(ex){box.innerHTML='<tr><td colspan="12" class="muted">'+esc(ex.message)+'</td></tr>'}
 }
 /* ── global registration list ── */
 function renderRegsTable(){
   const q=$('regSearch').value.trim().toLowerCase(),filter=$('regEventFilter').value;
   const list=adminRegRows.filter(r=>(filter==='ALL'||r.eventId===filter)&&(!q||[r.registrationId,r.name,r.email,r.registerNumber,r.eventName].join(' ').toLowerCase().includes(q)));
-  $('regsTable').innerHTML=list.length?list.map(r=>'<tr><td><strong>'+esc(r.name)+'</strong><br><span class="muted">'+esc(r.email)+'</span></td><td>'+esc(r.eventName)+'<br><span class="muted">'+esc(r.registrationId)+'</span></td><td>'+esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br>'+esc(r.registerNumber)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-att-row="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Verified':'Verify')+'</button></td></tr>').join(''):'<tr><td colspan="5" class="muted">No registrations match the selected filters.</td></tr>';
+  $('regsTable').innerHTML=list.length?list.map(r=>'<tr><td><strong>'+esc(r.name)+'</strong>'+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'<br><span class="muted">'+esc(r.email)+'</span></td><td>'+esc(r.eventName)+'<br><span class="muted">'+esc(r.registrationId)+'</span></td><td>'+esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br>'+esc(r.registerNumber)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-att-row="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Verified':'Verify')+'</button></td></tr>').join(''):'<tr><td colspan="5" class="muted">No registrations match the selected filters.</td></tr>';
 }
 $('regsTable').addEventListener('click',async e=>{
   const b=e.target.closest('[data-att-row]');if(!b)return;

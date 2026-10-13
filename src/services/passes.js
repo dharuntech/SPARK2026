@@ -59,7 +59,16 @@ async function shapePass(registration, { withQr = true } = {}) {
       modeLabel: modeLabel(event.registrationMode),
       status: event.status,
     },
+    teamMembers: Array.isArray(registration.teamMembers) ? registration.teamMembers : [],
   };
+
+  if (!base.teamMembers.length && registration.registrationId) {
+    try {
+      const prismaClient = require('../lib/prisma');
+      const row = await prismaClient.siteSetting.findUnique({ where: { key: 'team_' + registration.registrationId } });
+      if (row && row.value) base.teamMembers = JSON.parse(row.value);
+    } catch (_) {}
+  }
 
   if (!withQr) return base;
 

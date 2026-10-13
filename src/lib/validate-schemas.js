@@ -15,6 +15,15 @@ const academicYear = z.string().trim().min(1, 'Please choose your year').max(20)
 const section = z.string().trim().min(1, 'Please enter your section').max(10);
 const phone = z.string().trim().regex(/^[0-9+\-\s()]{7,20}$/, 'Enter a valid phone number').optional().or(z.literal(''));
 
+const memberSchema = z.object({
+  name: z.string().trim().min(2, 'Member name is required').max(120),
+  registerNumber: z.string().trim().min(4, 'Member register number is required').max(30),
+  department: z.string().trim().max(120).optional().or(z.literal('')),
+  academicYear: z.string().trim().max(20).optional().or(z.literal('')),
+  section: z.string().trim().max(10).optional().or(z.literal('')),
+  email: z.string().trim().max(160).optional().or(z.literal('')),
+});
+
 const registerSchema = z.object({
   eventId: z.string().trim().min(1, 'Please choose an event'),
   name,
@@ -24,6 +33,7 @@ const registerSchema = z.object({
   section,
   email,
   phone: phone.optional(),
+  teamMembers: z.array(memberSchema).optional(),
 });
 
 const passLookupSchema = z.object({
@@ -60,6 +70,7 @@ const onSpotSchema = z.object({
   section,
   email,
   phone: phone.optional(),
+  teamMembers: z.array(memberSchema).optional(),
 });
 
 const verifySchema = z

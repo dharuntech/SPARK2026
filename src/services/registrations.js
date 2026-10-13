@@ -56,6 +56,24 @@ async function resolveStudent(tx, data) {
   });
 }
 
+function getTeamRulesForEvent(eventName, eventCode) {
+  const norm = String(eventName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const code = String(eventCode || '').toUpperCase();
+  if (norm.includes('neuroforge') || norm.includes('neuraforge')) {
+    return { eventName: 'NeuroForge', min: 3, max: 4 };
+  }
+  if (norm.includes('auragen')) {
+    return { eventName: 'AuraGen', min: 1, max: 3 };
+  }
+  if (norm.includes('creovate')) {
+    return { eventName: 'Creovate', min: 1, max: 3 };
+  }
+  if (norm.includes('capturetheflag') || norm.includes('ctf') || code === 'E03') {
+    return { eventName: 'Capture the Flag', min: 1, max: 3 };
+  }
+  return { eventName: eventName || 'Event', min: 1, max: 3 };
+}
+
 /**
  * Creates one registration (website or on-spot) inside a serialised transaction:
  *  • per-event advisory lock prevents concurrent duplicate/capacity races
@@ -64,6 +82,22 @@ async function resolveStudent(tx, data) {
 async function createRegistration({ event, student: studentInput, source, adminId = null, ip = null }) {
   if (!['WEBSITE', 'ON_SPOT'].includes(source)) throw ApiError.badRequest('Unknown registration source.');
   const isOnline = source === 'WEBSITE';
+
+  const teamRules = getTeamRulesForEvent(event.name, event.code);
+  const rawMembers = Array.isArray(studentInput.teamMembers) ? studentInput.teamMembers : [];
+  const validMembers = rawMembers.filter((m) => m && (m.name || m.registerNumber));
+  const totalTeamSize = 1 + validMembers.length;
+
+  if (totalTeamSize < teamRules.min) {
+    throw ApiError.badRequest(
+      `Team size validation failed for ${teamRules.eventName}: Minimum ${teamRules.min} members required (current: ${totalTeamSize}).`
+    );
+  }
+  if (totalTeamSize > teamRules.max) {
+    throw ApiError.badRequest(
+      `Team size validation failed for ${teamRules.eventName}: Maximum ${teamRules.max} members allowed (current: ${totalTeamSize}).`
+    );
+  }
 
   const av = availability(event, await prisma.registration.count({ where: { eventId: event.id } }));
   if (isOnline) {
@@ -166,12 +200,23 @@ async function createRegistration({ event, student: studentInput, source, adminI
     throw translatePrismaError(err);
   }
 
+  if (validMembers.length > 0) {
+    try {
+      await prisma.siteSetting.upsert({
+        where: { key: 'team_' + created.registrationId },
+        update: { value: JSON.stringify(validMembers) },
+        create: { key: 'team_' + created.registrationId, value: JSON.stringify(validMembers) },
+      });
+    } catch (_) {}
+  }
+  created.teamMembers = validMembers;
+
   await audit({
     adminId,
     action: source === 'ON_SPOT' ? 'registration.created_on_spot' : 'registration.created',
     entityType: 'Registration',
     entityId: created.registrationId,
-    metadata: { eventId: event.id, eventCode: event.code, source },
+    metadata: { eventId: event.id, eventCode: event.code, source, teamCount: totalTeamSize },
     ip,
   });
 
@@ -179,7 +224,7 @@ async function createRegistration({ event, student: studentInput, source, adminI
   return pass;
 }
 
-function shapeRegistrationRow(registration) {
+function shapeRegistrationRow(registration, teamMembers = []) {
   return {
     registrationId: registration.registrationId,
     dbId: registration.id,
@@ -202,6 +247,7 @@ function shapeRegistrationRow(registration) {
     eventName: registration.event.name,
     eventCode: registration.event.code,
     eventDateLabel: time.fmtDate(registration.event.startsAt),
+    teamMembers: Array.isArray(teamMembers) ? teamMembers : [],
   };
 }
 
@@ -230,8 +276,19 @@ async function listRegistrations({ eventId, search = '', attendance = 'ALL', pag
     prisma.registration.count({ where }),
   ]);
 
+  const regKeys = rows.map((r) => 'team_' + r.registrationId);
+  const teamRows = regKeys.length
+    ? await prisma.siteSetting.findMany({ where: { key: { in: regKeys } } })
+    : [];
+  const teamMap = new Map();
+  teamRows.forEach((tr) => {
+    try {
+      teamMap.set(tr.key.replace(/^team_/, ''), JSON.parse(tr.value));
+    } catch (_) {}
+  });
+
   return {
-    registrations: rows.map(shapeRegistrationRow),
+    registrations: rows.map((r) => shapeRegistrationRow(r, teamMap.get(r.registrationId) || [])),
     pagination: { page: Number(page) || 1, pageSize: take, total, pages: Math.max(1, Math.ceil(total / take)) },
   };
 }
