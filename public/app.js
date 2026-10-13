@@ -229,6 +229,12 @@ if(grid){
 }
 document.querySelectorAll('.pager button').forEach(b=>b.addEventListener('click',()=>go(+b.dataset.section)));
 })();
+function formatModeLabel(m, label){
+  if(label==='Website registration'||m==='WEBSITE'||label==='Online registration')return 'Online registration';
+  if(label==='Both'||m==='BOTH'||label==='Both on-spot and online registration')return 'Both on-spot and online registration';
+  if(label==='On-spot registration'||m==='ON_SPOT')return 'On-spot registration';
+  return label||'Online registration';
+}
 function eventById(id){return events.find(e=>e.id===id||e.code===id)||null}
 
 function openEventDetails(ev){
@@ -239,7 +245,7 @@ function openEventDetails(ev){
   const metaGrid = '<div class="detail-meta-grid">'
     + '<div class="detail-meta-card"><span class="detail-label">VENUE</span><b class="detail-val">'+esc(ev.venue)+'</b></div>'
     + '<div class="detail-meta-card"><span class="detail-label">DATE &amp; TIME</span><b class="detail-val">'+esc(ev.dateLabel)+' • '+esc(ev.timeLabel)+'</b></div>'
-    + '<div class="detail-meta-card"><span class="detail-label">REGISTRATION MODE</span><b class="detail-val">'+esc(ev.modeLabel)+'</b></div>'
+    + '<div class="detail-meta-card"><span class="detail-label">REGISTRATION MODE</span><b class="detail-val">'+esc(formatModeLabel(ev.registrationMode, ev.modeLabel))+'</b></div>'
     + '<div class="detail-meta-card"><span class="detail-label">STATUS</span><b class="detail-val '+(ev.registrationOpen?'st-open':'st-closed')+'">'+statusStr+'</b></div>'
     + '</div>';
   const descBox = '<div class="detail-desc-box"><h4>About this event</h4><p>'+esc(ev.description)+'</p>'
@@ -412,9 +418,10 @@ function drawEventCardCanvas(ev, img) {
   ctx.fillText('MODE', padX, row2Y);
   ctx.fillText('STATUS', col2X, row2Y);
 
+  const modeText = formatModeLabel(ev.registrationMode, ev.modeLabel);
   ctx.fillStyle = '#0f172a';
-  ctx.font = '700 19px "DM Sans", sans-serif';
-  ctx.fillText(ev.modeLabel || 'Website', padX, row2Y + 22);
+  ctx.font = modeText.length > 20 ? '700 13px "DM Sans", sans-serif' : '700 19px "DM Sans", sans-serif';
+  ctx.fillText(modeText, padX, row2Y + 22);
 
   const isOpen = ev.registrationOpen;
   ctx.fillStyle = isOpen ? '#2563eb' : '#dc2626';
@@ -579,7 +586,7 @@ function seatLabel(e){return ''}
 function renderEvents(){const q=$('eventSearch')?$('eventSearch').value.trim().toLowerCase():'',grid=$('eventGrid');
 const list=events.filter(e=>(activeFilter==='ALL'||e.category===activeFilter)&&(!q||[e.name,e.description,e.venue,e.categoryLabel,e.code].join(' ').toLowerCase().includes(q)));
 grid.innerHTML=list.length?list.map(e=>{const open=e.registrationOpen;const statusText=open?'OPEN':(e.closedReason==='FULL'?'FULL':e.closedReason==='ON_SPOT_ONLY'?'ON-SPOT':e.closedReason==='CANCELLED'?'CANCELLED':e.closedReason==='COMPLETED'?'COMPLETED':'CLOSED');
-return '<article class="card" data-event="'+esc(e.id)+'">'+cardMedia(e)+'<div class="meta"><span>'+esc(e.code)+'</span><span class="tag">'+esc(e.categoryLabel)+'</span></div><h3>'+esc(e.name)+'</h3><p>'+esc(e.description)+'</p><div class="kv"><div>VENUE<b>'+esc(e.venue)+'</b></div><div>TIME<b>'+esc(e.dateLabel)+' · '+esc(e.timeLabel)+'</b></div><div>MODE<b>'+esc(e.modeLabel)+'</b></div><div>STATUS<b class="'+(open?'st-open':'st-closed')+'">'+statusText+'</b></div></div><div class="actions"><button class="mini primary" data-reg="'+esc(e.id)+'"'+(open?'':' disabled title="'+esc(e.closedMessage||'Registration closed')+'"')+'>'+(open?'Register':'Registration closed')+'</button><button class="mini" data-info="'+esc(e.id)+'">Details</button></div></article>'}).join(''):'<div class="empty">'+(loadState==='loading'?'Loading events from the server…':loadState==='error'?'Events could not be loaded from the server. Please refresh the page to try again.':'No published events match your search.')+'</div>';
+return '<article class="card" data-event="'+esc(e.id)+'">'+cardMedia(e)+'<div class="meta"><span>'+esc(e.code)+'</span><span class="tag">'+esc(e.categoryLabel)+'</span></div><h3>'+esc(e.name)+'</h3><p>'+esc(e.description)+'</p><div class="kv"><div>VENUE<b>'+esc(e.venue)+'</b></div><div>TIME<b>'+esc(e.dateLabel)+' · '+esc(e.timeLabel)+'</b></div><div>MODE<b>'+esc(formatModeLabel(e.registrationMode, e.modeLabel))+'</b></div><div>STATUS<b class="'+(open?'st-open':'st-closed')+'">'+statusText+'</b></div></div><div class="actions"><button class="mini primary" data-reg="'+esc(e.id)+'"'+(open?'':' disabled title="'+esc(e.closedMessage||'Registration closed')+'"')+'>'+(open?'Register':'Registration closed')+'</button><button class="mini" data-info="'+esc(e.id)+'">Details</button></div></article>'}).join(''):'<div class="empty">'+(loadState==='loading'?'Loading events from the server…':loadState==='error'?'Events could not be loaded from the server. Please refresh the page to try again.':'No published events match your search.')+'</div>';
 if($('countEvents'))$('countEvents').textContent=String(events.length).padStart(2,'0');
 if($('countTechnical'))$('countTechnical').textContent=String(events.filter(e=>e.category==='TECHNICAL').length).padStart(2,'0');
 if($('countRegs'))$('countRegs').textContent=String(events.reduce((a,e)=>a+(e.registeredCount||0),0)).padStart(2,'0');updateCircularGallery()}
@@ -589,6 +596,7 @@ async function loadEvents(){
   try{
     const d=await api('/api/events');
     const list=d.events||[];
+    list.forEach(e=>{e.modeLabel=formatModeLabel(e.registrationMode,e.modeLabel);});
     const iplIdx=list.findIndex(e=>(e.name||'').toLowerCase().includes('ipl')||e.code==='E04');
     if(iplIdx>0){
       const [ipl]=list.splice(iplIdx,1);
@@ -808,7 +816,7 @@ if($('teamMembersList')){
 function updateSelected(){const e=eventById(selectedId)||events[0]||null;
 if(!e){$('selectedTitle').textContent='Choose an event';$('selectedMeta').textContent='No published events are available right now.';return}
 selectedId=e.id;$('selectedTitle').textContent=e.name;
-$('selectedMeta').textContent=e.categoryLabel+' · '+e.venue+' · '+e.dateLabel+' · '+e.timeLabel+' · '+e.modeLabel;
+$('selectedMeta').textContent=e.categoryLabel+' · '+e.venue+' · '+e.dateLabel+' · '+e.timeLabel+' · '+formatModeLabel(e.registrationMode, e.modeLabel);
 $('regSubmit').disabled=!e.registrationOpen;
 $('regSubmit').textContent=e.registrationOpen?'Generate my pass':'Registration closed';
 $('regError').textContent=e.registrationOpen?'':(e.closedMessage||'');

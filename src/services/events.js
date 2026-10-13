@@ -5,9 +5,9 @@ const time = require('../lib/time');
 
 const CATEGORY_LABELS = { TECHNICAL: 'TECHNICAL', NON_TECHNICAL: 'NON-TECHNICAL' };
 const MODE_LABELS = {
-  WEBSITE: 'Website registration',
+  WEBSITE: 'Online registration',
   ON_SPOT: 'On-spot registration',
-  BOTH: 'Both',
+  BOTH: 'Both on-spot and online registration',
 };
 const STATUS_LABELS = { DRAFT: 'DRAFT', PUBLISHED: 'PUBLISHED', CANCELLED: 'CANCELLED', COMPLETED: 'COMPLETED' };
 

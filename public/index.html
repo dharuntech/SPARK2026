@@ -576,8 +576,27 @@ nav#nav a.active{background:transparent!important}
 .contact-card{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:34px 20px 28px;border-radius:24px;background:rgba(255,255,255,.92);border:1px solid rgba(124,58,237,.18);box-shadow:0 12px 34px rgba(60,50,170,.12);transition:transform .35s cubic-bezier(.16,.9,.24,1),box-shadow .35s,border-color .35s;grid-column:span 2}
 .contact-card:before{content:"";position:absolute;left:24px;right:24px;top:0;height:4px;border-radius:0 0 4px 4px;background:linear-gradient(90deg,#1D4ED8,#7C3AED 60%,#22D3EE)}
 .contact-card:hover{transform:translateY(-6px);box-shadow:0 24px 50px rgba(76,70,230,.22);border-color:rgba(124,58,237,.4)}
+.contact-card.coord-card{grid-column:3 / span 2}
 .contact-card.dev-card-1{grid-column:2 / span 2}
 .contact-card.dev-card-2{grid-column:4 / span 2}
+
+.contact-boxes{max-width:1160px;margin:38px auto 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.cbox-card{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:32px 22px 28px;border-radius:24px;background:rgba(255,255,255,.92);border:1px solid rgba(124,58,237,.18);box-shadow:0 12px 34px rgba(60,50,170,.12);transition:transform .35s cubic-bezier(.16,.9,.24,1),box-shadow .35s,border-color .35s}
+.cbox-card:before{content:"";position:absolute;left:24px;right:24px;top:0;height:4px;border-radius:0 0 4px 4px;background:linear-gradient(90deg,#1D4ED8,#7C3AED 60%,#22D3EE)}
+.cbox-card:hover{transform:translateY(-5px);box-shadow:0 22px 48px rgba(76,70,230,.22);border-color:rgba(124,58,237,.4)}
+.cbox-icon{width:56px;height:56px;border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 20px rgba(60,50,170,.14);transition:transform .3s ease}
+.cbox-card:hover .cbox-icon{transform:scale(1.08)}
+.cbox-icon.mail{background:linear-gradient(135deg,#EEF2FF,#E0E7FF);color:#4F46E5;border:1px solid rgba(99,102,241,.3)}
+.cbox-icon.phone{background:linear-gradient(135deg,#EFF6FF,#DBEAFE);color:#2563EB;border:1px solid rgba(37,99,235,.3)}
+.cbox-icon.visit{background:linear-gradient(135deg,#ECFDF5,#D1FAE5);color:#059669;border:1px solid rgba(16,185,129,.3)}
+.cbox-title{font-size:20px;font-weight:800;letter-spacing:-.015em;color:#0B1026;margin:0 0 6px;line-height:1.25}
+.cbox-desc{color:#64748B;font-size:13.5px;line-height:1.5;margin:0 0 14px}
+.cbox-link{font-weight:700;font-size:15px;letter-spacing:.01em;text-decoration:none;transition:color .2s,opacity .2s;display:inline-block;padding:2px 0}
+.cbox-link.mail{color:#7C3AED}
+.cbox-link.mail:hover{color:#4F46E5;text-decoration:underline}
+.cbox-link.phone{color:#2563EB}
+.cbox-link.phone:hover{color:#1D4ED8;text-decoration:underline}
+.cbox-link.visit{color:#059669}
 
 .c-photo{width:140px;height:140px;border-radius:50%;overflow:hidden;background:#EEF2FF;border:4px solid #fff;box-shadow:0 10px 26px rgba(60,50,170,.22),0 0 0 2px rgba(124,58,237,.25);transition:transform .3s ease,box-shadow .3s ease;margin-bottom:16px;flex-shrink:0}
 .contact-card:hover .c-photo{transform:scale(1.05);box-shadow:0 14px 32px rgba(60,50,170,.3),0 0 0 3px rgba(124,58,237,.4)}
@@ -598,10 +617,16 @@ nav#nav a.active{background:transparent!important}
 .section.show .contact-card:nth-child(6){animation-delay:.38s}
 .section.show .contact-card:nth-child(7){animation-delay:.44s}
 .section.show .contact-card:nth-child(8){animation-delay:.50s}
+.section.show .contact-card:nth-child(9){animation-delay:.56s}
+.section.show .cbox-card{animation:fxRise .85s var(--ease-out) backwards}
+.section.show .cbox-card:nth-child(1){animation-delay:.58s}
+.section.show .cbox-card:nth-child(2){animation-delay:.64s}
+.section.show .cbox-card:nth-child(3){animation-delay:.70s}
 
 @media(max-width:991px){
   .contact-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
-  .contact-card,.contact-card.dev-card-1,.contact-card.dev-card-2{grid-column:auto!important}
+  .contact-card,.contact-card.coord-card,.contact-card.dev-card-1,.contact-card.dev-card-2{grid-column:auto!important}
+  .contact-boxes{grid-template-columns:1fr;gap:18px;margin-top:28px}
 }
 @media(max-width:600px){
   .contact-grid{grid-template-columns:1fr;gap:18px}
@@ -975,6 +1000,16 @@ nav#nav .nav-cta,.hero-cta,.cta,.card .actions .mini.primary,.mini.primary{backg
     </div>
   </article>
 
+  <!-- Row 3: Student Coordinator -->
+  <article class="contact-card coord-card">
+    <div class="c-photo"><img src="/team/sharveshvar-student-coord.png" alt="Sharveshvar TR" width="140" height="140" loading="lazy" onerror="this.onerror=null;this.src='/team/Sharveshvar%20TR%20STUDENT%20COORDINATOR.png'"></div>
+    <div class="c-body">
+      <h3 class="c-name">Sharveshvar TR</h3>
+      <span class="c-role">STUDENT COORDINATOR</span>
+      <div class="c-divider" aria-hidden="true"></div>
+    </div>
+  </article>
+
   <!-- Final row: Web Developers -->
   <article class="contact-card dev-card dev-card-1">
     <div class="c-photo"><img src="/team/dharun.jpg" alt="Dharun M" width="140" height="140" loading="lazy"></div>
@@ -991,6 +1026,36 @@ nav#nav .nav-cta,.hero-cta,.cta,.card .actions .mini.primary,.mini.primary{backg
       <span class="c-role">WEB DEVELOPMENT</span>
       <div class="c-divider" aria-hidden="true"></div>
     </div>
+  </article>
+</div>
+
+<!-- Contact Information Boxes -->
+<div class="contact-boxes">
+  <article class="cbox-card">
+    <div class="cbox-icon mail" aria-hidden="true">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+    </div>
+    <h3 class="cbox-title">Email Us</h3>
+    <p class="cbox-desc">Get in touch with our organizing team</p>
+    <a class="cbox-link mail" href="mailto:subashnaga1330@gmail.com">subashnaga1330@gmail.com</a>
+  </article>
+
+  <article class="cbox-card">
+    <div class="cbox-icon phone" aria-hidden="true">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+    </div>
+    <h3 class="cbox-title">Call Us</h3>
+    <p class="cbox-desc">Speak directly with our team</p>
+    <a class="cbox-link phone" href="tel:8610845775">8610845775</a>
+  </article>
+
+  <article class="cbox-card">
+    <div class="cbox-icon visit" aria-hidden="true">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+    </div>
+    <h3 class="cbox-title">Visit Us</h3>
+    <p class="cbox-desc">Find us at our campus location</p>
+    <span class="cbox-link visit">CSE Department</span>
   </article>
 </div></section>
 <section class="section" id="s5"><div class="section-head"><div class="eyebrow">→ About SPARK</div><h2>About SPARK'26<span class="dim">Innovate &amp; Inspire.</span></h2><p>Where innovation meets opportunity, and brilliant minds converge to shape the future of technology.</p></div>
@@ -1031,7 +1096,7 @@ nav#nav .nav-cta,.hero-cta,.cta,.card .actions .mini.primary,.mini.primary{backg
 </div>
 <div id="adminEventCreateView" class="hidden">
 <div class="admin-top" style="align-items:flex-start"><div><div class="eyebrow">→ Event management</div><h2 id="eventPageHeading">Create an Event</h2><p id="eventPageSub">New events are published by default and visible to students immediately. Select Draft if you want to keep them private until ready.</p></div><div class="actions" style="margin-top:0"><button class="mini" id="backToEventsBtn" type="button">← Back to events</button></div></div>
-<section class="admin-panel" style="max-width:880px;margin:0 auto"><h3 id="eventFormTitle">Create an Event</h3><form id="eventForm"><input type="hidden" id="editEventId"><div class="form-grid"><div class="field full"><label class="label" for="eName">Event name</label><input id="eName" required placeholder="e.g. Code Sprint"></div><div class="field"><label class="label" for="eCategory">Category</label><select id="eCategory"><option value="TECHNICAL">TECHNICAL</option><option value="NON_TECHNICAL">NON-TECHNICAL</option></select></div><div class="field"><label class="label" for="eVenue">Venue</label><input id="eVenue" required placeholder="CSE Lab 1"></div><div class="field"><label class="label" for="eDate">Event date</label><input id="eDate" type="date" required></div><div class="field"><label class="label" for="eStart">Start time (IST)</label><input id="eStart" type="time" required value="10:00"></div><div class="field"><label class="label" for="eEnd">End time (IST)</label><input id="eEnd" type="time" required value="12:00"></div><div class="field"><label class="label" for="eDeadline">Online registration closes (IST)</label><input id="eDeadline" type="datetime-local"></div><div class="field"><label class="label" for="eCapacity">Maximum participants (optional)</label><input id="eCapacity" type="number" min="1" max="2000" placeholder="No limit"></div><div class="field"><label class="label" for="eStatus">Status</label><select id="eStatus"><option value="PUBLISHED" selected>Published</option><option value="DRAFT">Draft</option><option value="COMPLETED">Completed</option><option value="CANCELLED">Cancelled</option></select></div><div class="field"><label class="label" for="eMode">Registration mode</label><select id="eMode"><option value="WEBSITE">Website registration</option><option value="ON_SPOT">On-spot registration</option><option value="BOTH">Both</option></select></div><div class="field full"><label class="label" for="eDesc">Short description</label><textarea id="eDesc" required placeholder="What should students know?"></textarea></div><div class="field full"><label class="label" for="eImage">Event image / poster (JPG, PNG or WEBP · max 5 MB)</label><input class="file-input" id="eImage" type="file" accept="image/png,image/jpeg,image/webp"><span id="eImageFilename" class="helper" style="display:block;margin-top:4px;color:var(--cyan);font-family:var(--mono);font-size:11px"></span><img id="imagePreview" class="preview hidden" alt="Event image preview"></div><div class="field full"><label class="label" for="eBrochure">Brochure / poster (optional)</label><input class="file-input" id="eBrochure" type="file" accept="image/*"><span id="eBrochureFilename" class="helper" style="display:block;margin-top:4px;color:var(--cyan);font-family:var(--mono);font-size:11px"></span><img id="brochurePreview" class="preview hidden" alt="Brochure preview"></div></div><div id="eventFormError" class="form-error" role="alert"></div><div class="actions"><button class="cta" type="submit" id="eventSubmit">Save Event</button><button class="mini" type="button" id="cancelEdit">Cancel</button></div></form><div class="notice">New events are published by default and visible on the website. Select Draft if you want to keep them hidden from students until ready.</div></section>
+<section class="admin-panel" style="max-width:880px;margin:0 auto"><h3 id="eventFormTitle">Create an Event</h3><form id="eventForm"><input type="hidden" id="editEventId"><div class="form-grid"><div class="field full"><label class="label" for="eName">Event name</label><input id="eName" required placeholder="e.g. Code Sprint"></div><div class="field"><label class="label" for="eCategory">Category</label><select id="eCategory"><option value="TECHNICAL">TECHNICAL</option><option value="NON_TECHNICAL">NON-TECHNICAL</option></select></div><div class="field"><label class="label" for="eVenue">Venue</label><input id="eVenue" required placeholder="CSE Lab 1"></div><div class="field"><label class="label" for="eDate">Event date</label><input id="eDate" type="date" required></div><div class="field"><label class="label" for="eStart">Start time (IST)</label><input id="eStart" type="time" required value="10:00"></div><div class="field"><label class="label" for="eEnd">End time (IST)</label><input id="eEnd" type="time" required value="12:00"></div><div class="field"><label class="label" for="eDeadline">Online registration closes (IST)</label><input id="eDeadline" type="datetime-local"></div><div class="field"><label class="label" for="eCapacity">Maximum participants (optional)</label><input id="eCapacity" type="number" min="1" max="2000" placeholder="No limit"></div><div class="field"><label class="label" for="eStatus">Status</label><select id="eStatus"><option value="PUBLISHED" selected>Published</option><option value="DRAFT">Draft</option><option value="COMPLETED">Completed</option><option value="CANCELLED">Cancelled</option></select></div><div class="field"><label class="label" for="eMode">Registration mode</label><select id="eMode"><option value="WEBSITE">Online registration</option><option value="ON_SPOT">On-spot registration</option><option value="BOTH">Both on-spot and online registration</option></select></div><div class="field full"><label class="label" for="eDesc">Short description</label><textarea id="eDesc" required placeholder="What should students know?"></textarea></div><div class="field full"><label class="label" for="eImage">Event image / poster (JPG, PNG or WEBP · max 5 MB)</label><input class="file-input" id="eImage" type="file" accept="image/png,image/jpeg,image/webp"><span id="eImageFilename" class="helper" style="display:block;margin-top:4px;color:var(--cyan);font-family:var(--mono);font-size:11px"></span><img id="imagePreview" class="preview hidden" alt="Event image preview"></div><div class="field full"><label class="label" for="eBrochure">Brochure / poster (optional)</label><input class="file-input" id="eBrochure" type="file" accept="image/*"><span id="eBrochureFilename" class="helper" style="display:block;margin-top:4px;color:var(--cyan);font-family:var(--mono);font-size:11px"></span><img id="brochurePreview" class="preview hidden" alt="Brochure preview"></div></div><div id="eventFormError" class="form-error" role="alert"></div><div class="actions"><button class="cta" type="submit" id="eventSubmit">Save Event</button><button class="mini" type="button" id="cancelEdit">Cancel</button></div></form><div class="notice">New events are published by default and visible on the website. Select Draft if you want to keep them hidden from students until ready.</div></section>
 </div>
 </div></div>
 <div class="toast" id="toast" role="status"></div>

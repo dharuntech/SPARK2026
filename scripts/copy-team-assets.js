@@ -27,7 +27,8 @@ const aliases = {
   'V Nagulan CSD CHAIRPERSON.jpeg': 'nagulan-chair-csd.jpeg',
   'Adarsha Murmu CSE SECRETARY.jpeg': 'adarsha-sec-cse.jpeg',
   'M V Dev AIML SECRETARY.jpeg': 'dev-sec-aiml.jpeg',
-  'G Sanjay CSD SECRETARY.jpeg': 'sanjay-sec-csd.jpeg'
+  'G Sanjay CSD SECRETARY.jpeg': 'sanjay-sec-csd.jpeg',
+  'Sharveshvar TR STUDENT COORDINATOR.png': 'sharveshvar-student-coord.png'
 };
 
 Object.entries(aliases).forEach(([orig, alias]) => {
