@@ -678,6 +678,9 @@ function saveTeamInputsToState(){
       currentTeamMembers[idx].registerNumber = card.querySelector('.m-regno')?.value || '';
       currentTeamMembers[idx].department = card.querySelector('.m-dept')?.value || '';
       currentTeamMembers[idx].academicYear = card.querySelector('.m-year')?.value || '';
+      currentTeamMembers[idx].section = card.querySelector('.m-section')?.value || '';
+      currentTeamMembers[idx].email = card.querySelector('.m-email')?.value || '';
+      currentTeamMembers[idx].phone = card.querySelector('.m-phone')?.value || '';
     }
   });
 }
@@ -724,9 +727,12 @@ function renderTeamForm(){
       '</div>' +
       '<div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">' +
         '<div class="field"><label class="label">Full name</label><input class="m-name" required placeholder="Member name" value="' + esc(m.name || '') + '"></div>' +
-        '<div class="field"><label class="label">Register number</label><input class="m-regno" required placeholder="Member Reg.No" value="' + esc(m.registerNumber || '') + '"></div>' +
         '<div class="field"><label class="label">Department</label><input class="m-dept" placeholder="CSE" value="' + esc(m.department || '') + '"></div>' +
         '<div class="field"><label class="label">Year</label><select class="m-year"><option value="" disabled' + (!m.academicYear ? ' selected' : '') + '>Select Year</option><option value="I"' + (m.academicYear === 'I' ? ' selected' : '') + '>I</option><option value="II"' + (m.academicYear === 'II' ? ' selected' : '') + '>II</option><option value="III"' + (m.academicYear === 'III' ? ' selected' : '') + '>III</option></select></div>' +
+        '<div class="field"><label class="label">Section</label><input class="m-section" placeholder="A" value="' + esc(m.section || '') + '"></div>' +
+        '<div class="field"><label class="label">Register number</label><input class="m-regno" required placeholder="Member Reg.No" value="' + esc(m.registerNumber || '') + '"></div>' +
+        '<div class="field"><label class="label">Email</label><input class="m-email" type="email" placeholder="member@example.com" value="' + esc(m.email || '') + '"></div>' +
+        '<div class="field full"><label class="label">Mobile number</label><input class="m-phone" type="tel" placeholder="10-digit mobile number" value="' + esc(m.phone || '') + '"></div>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -736,7 +742,7 @@ function syncTeamForEvent(ev){
   const rules = getEventTeamRules(ev);
   if(rules.name === 'NeuroForge'){
     while(currentTeamMembers.length < 2){
-      currentTeamMembers.push({ name: '', registerNumber: '', department: '', academicYear: '', section: '' });
+      currentTeamMembers.push({ name: '', registerNumber: '', department: '', academicYear: '', section: '', email: '', phone: '' });
     }
   }
   const maxAdd = rules.max - 1;
@@ -752,7 +758,7 @@ if($('addMemberBtn')){
     const ev = eventById(selectedId) || events[0] || null;
     const rules = getEventTeamRules(ev);
     if(1 + currentTeamMembers.length >= rules.max) return;
-    currentTeamMembers.push({ name: '', registerNumber: '', department: '', academicYear: '', section: '' });
+    currentTeamMembers.push({ name: '', registerNumber: '', department: '', academicYear: '', section: '', email: '', phone: '' });
     renderTeamForm();
   };
 }
@@ -770,18 +776,20 @@ if($('teamMembersList')){
           registerNumber: $('rRegno').value.trim(),
           department: $('rDept').value.trim(),
           academicYear: $('rYear').value,
-          section: $('rSection').value.trim()
+          section: $('rSection').value.trim(),
+          email: $('rEmail').value.trim(),
+          phone: $('rPhone') ? $('rPhone').value.trim() : ''
         };
         $('rName').value = chosen.name || '';
         $('rRegno').value = chosen.registerNumber || '';
         $('rDept').value = chosen.department || '';
         if(chosen.academicYear) $('rYear').value = chosen.academicYear;
+        if(chosen.section) $('rSection').value = chosen.section;
+        if(chosen.email && $('rEmail')) $('rEmail').value = chosen.email;
+        if(chosen.phone && $('rPhone')) $('rPhone').value = chosen.phone;
         currentTeamMembers[idx] = oldLead;
-        if($('rPhone')) $('rPhone').value = '';
-        if($('rEmail')) $('rEmail').value = '';
         renderTeamForm();
-        if($('rPhone')) $('rPhone').focus();
-        toast('Team Leader changed', 'Please enter ' + (chosen.name || 'the new leader') + "'s mobile number and email.");
+        toast('Team Leader changed', 'Please verify ' + (chosen.name || 'the new leader') + "'s details.");
       }
       return;
     }
@@ -872,7 +880,8 @@ if(!isValidPhone){
   return;
 }
 
-const payload={eventId:ev.id,name:$('rName').value.trim(),registerNumber:$('rRegno').value.trim(),department:$('rDept').value.trim(),academicYear:yearVal,section:$('rSection').value.trim(),email:emailVal,phone:phoneVal,teamMembers:validMembers};
+const teamNameVal = $('rTeamName') ? $('rTeamName').value.trim() : '';
+const payload={eventId:ev.id,teamName:teamNameVal,name:$('rName').value.trim(),registerNumber:$('rRegno').value.trim(),department:$('rDept').value.trim(),academicYear:yearVal,section:$('rSection').value.trim(),email:emailVal,phone:phoneVal,teamMembers:validMembers};
 btn.disabled=true;btn.textContent='Creating your pass…';
 try{
   const data=await api('/api/registrations',{method:'POST',body:payload});
@@ -883,10 +892,12 @@ try{
   go(3);renderPass();
   updateSelected();
   const teamHtml = (data.pass.teamMembers && data.pass.teamMembers.length)
-    ? '<div style="margin-top:8px;font-size:12px;color:var(--ink)"><strong>Team (' + (data.pass.teamMembers.length + 1) + '):</strong> ' +
+    ? '<div style="margin-top:8px;font-size:12px;color:var(--ink)">' +
+      (data.pass.teamName ? '<strong>Team:</strong> ' + esc(data.pass.teamName) + '<br>' : '') +
+      '<strong>Team (' + (data.pass.teamMembers.length + 1) + '):</strong> ' +
       esc(data.pass.student.name) + ' (Lead), ' +
       esc(data.pass.teamMembers.map(m => m.name + ' (' + m.registerNumber + ')').join(', ')) + '</div>'
-    : '';
+    : (data.pass.teamName ? '<div style="margin-top:8px;font-size:12px;color:var(--ink)"><strong>Team:</strong> ' + esc(data.pass.teamName) + '</div>' : '');
   showInfo(
     'Registration confirmed',
     'Your Spark’26 pass is ready',
@@ -1340,6 +1351,8 @@ function renderEventSelectors(){
   const onspot=$('onspotEventSelect'),keepOn=onspot.value;
   onspot.innerHTML=adminEvents.filter(e=>e.status==='PUBLISHED').map(e=>'<option value="'+esc(e.id)+'">'+esc(e.code+' · '+e.name)+' ('+esc(e.modeLabel)+')</option>').join('')||'<option value="">No published events</option>';
   if(keepOn)onspot.value=keepOn;
+  const curOnspot = getSelectedOnspotEvent();
+  if(curOnspot) syncOnspotTeamForEvent(curOnspot);
 }
 function renderAdmin(){renderAdminStats();renderAdminEventsTable();renderEventSelectors();renderRegsTable()}
 /* ── event-wise participant list ── */
@@ -1358,13 +1371,14 @@ async function loadParticipants(){
     const rows=d.registrations;
     box.innerHTML=rows.length?rows.map((r,i)=>{
       const hasTeam=Array.isArray(r.teamMembers)&&r.teamMembers.length>0;
+      const teamTitleHtml = r.teamName ? '<div style="font-size:10.5px;color:var(--cyan);font-weight:700;margin-bottom:2px">TEAM: ' + esc(r.teamName) + '</div>' : '';
       const nameHtml=hasTeam
-        ? '<div style="font-weight:700"><span class="badge" style="font-size:9px;background:rgba(124,58,237,0.25);color:#c4b5fd;padding:1px 5px;border-radius:4px;margin-right:4px">LEADER</span>'+esc(r.name)+'</div>'
+        ? teamTitleHtml + '<div style="font-weight:700"><span class="badge" style="font-size:9px;background:rgba(124,58,237,0.25);color:#c4b5fd;padding:1px 5px;border-radius:4px;margin-right:4px">LEADER</span>'+esc(r.name)+'</div>'
           + '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.15)">'
           + '<div style="font-size:10px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:0.5px">Team Members:</div>'
-          + r.teamMembers.map((m,idx)=>'<div style="font-size:11px;margin-top:2px;line-height:1.3"><strong>Member '+(idx+2)+':</strong> '+esc(m.name)+(m.registerNumber?'<br><span class="muted" style="font-size:10px">Reg: '+esc(m.registerNumber)+(m.department?' · '+esc(m.department):'')+((m.academicYear||m.section)?' · '+[m.academicYear?'Yr '+esc(m.academicYear):'',m.section?'Sec '+esc(m.section):''].filter(Boolean).join(' '):'')+'</span>':'')+'</div>').join('')
+          + r.teamMembers.map((m,idx)=>'<div style="font-size:11px;margin-top:2px;line-height:1.3"><strong>Member '+(idx+2)+':</strong> '+esc(m.name)+(m.registerNumber?'<br><span class="muted" style="font-size:10px">Reg: '+esc(m.registerNumber)+(m.department?' · '+esc(m.department):'')+((m.academicYear||m.section)?' · '+[m.academicYear?'Yr '+esc(m.academicYear):'',m.section?'Sec '+esc(m.section):''].filter(Boolean).join(' '):'')+((m.email||m.phone)?'<br>'+[m.email?esc(m.email):'',m.phone?'📱 '+esc(m.phone):''].filter(Boolean).join(' · '):'')+'</span>':'')+'</div>').join('')
           + '</div>'
-        : '<strong>'+esc(r.name)+'</strong>';
+        : (teamTitleHtml + '<strong>'+esc(r.name)+'</strong>');
       const regHtml='<div><strong>'+esc(r.registerNumber)+'</strong>'+(hasTeam?'<br>'+r.teamMembers.map((m,idx)=>'<span class="muted" style="font-size:10px" title="Member '+(idx+2)+'">M'+(idx+2)+': '+esc(m.registerNumber||'—')+'</span>').join('<br>'):'')+'</div>';
       const deptHtml='<div>'+esc(r.department)+(hasTeam?'<br>'+r.teamMembers.map((m,idx)=>'<span class="muted" style="font-size:10px" title="Member '+(idx+2)+'">M'+(idx+2)+': '+esc(m.department||'—')+'</span>').join('<br>'):'')+'</div>';
       const yrHtml='<div>'+esc(r.academicYear)+(hasTeam?'<br>'+r.teamMembers.map((m,idx)=>'<span class="muted" style="font-size:10px" title="Member '+(idx+2)+'">M'+(idx+2)+': '+esc(m.academicYear||'—')+'</span>').join('<br>'):'')+'</div>';
@@ -1376,16 +1390,18 @@ async function loadParticipants(){
 /* ── global registration list ── */
 function renderRegsTable(){
   const q=$('regSearch').value.trim().toLowerCase(),filter=$('regEventFilter').value;
-  const list=adminRegRows.filter(r=>(filter==='ALL'||r.eventId===filter)&&(!q||[r.registrationId,r.name,r.email,r.phone||'',r.registerNumber,r.eventName].join(' ').toLowerCase().includes(q)));
+  const list=adminRegRows.filter(r=>(filter==='ALL'||r.eventId===filter)&&(!q||[r.registrationId,r.name,r.email,r.phone||'',r.registerNumber,r.eventName,r.teamName||''].join(' ').toLowerCase().includes(q)));
   $('regsTable').innerHTML=list.length?list.map(r=>{
     const hasTeam=Array.isArray(r.teamMembers)&&r.teamMembers.length>0;
+    const teamTitleHtml = r.teamName ? '<div style="font-size:10.5px;color:var(--cyan);font-weight:700;margin-bottom:2px">TEAM: ' + esc(r.teamName) + '</div>' : '';
     const participantHtml=hasTeam
-      ? '<div style="margin-bottom:3px"><span class="badge" style="font-size:9px;background:rgba(124,58,237,0.25);color:#c4b5fd;padding:1px 5px;border-radius:4px;font-weight:700">TEAM LEADER</span> <strong style="margin-left:3px">'+esc(r.name)+'</strong><br><span class="muted" style="font-size:11px">'+esc(r.email)+(r.phone?' · 📱 '+esc(r.phone):'')+'</span></div>'
+      ? teamTitleHtml
+        + '<div style="margin-bottom:3px"><span class="badge" style="font-size:9px;background:rgba(124,58,237,0.25);color:#c4b5fd;padding:1px 5px;border-radius:4px;font-weight:700">TEAM LEADER</span> <strong style="margin-left:3px">'+esc(r.name)+'</strong><br><span class="muted" style="font-size:11px">'+esc(r.email)+(r.phone?' · 📱 '+esc(r.phone):'')+'</span></div>'
         + '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.15)">'
         + '<div style="font-size:10px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:0.5px">Team Members</div>'
-        + r.teamMembers.map((m,idx)=>'<div style="font-size:11px;margin-top:2px;line-height:1.3"><strong>Member '+(idx+2)+':</strong> '+esc(m.name)+(m.registerNumber?' · <span class="muted">Reg: '+esc(m.registerNumber)+'</span>':'')+(m.department?' · <span class="muted">'+esc(m.department)+'</span>':'')+((m.academicYear||m.section)?' · <span class="muted">'+[m.academicYear?'Yr '+esc(m.academicYear):'',m.section?'Sec '+esc(m.section):''].filter(Boolean).join(' ')+'</span>':'')+'</div>').join('')
+        + r.teamMembers.map((m,idx)=>'<div style="font-size:11px;margin-top:2px;line-height:1.3"><strong>Member '+(idx+2)+':</strong> '+esc(m.name)+(m.registerNumber?' · <span class="muted">Reg: '+esc(m.registerNumber)+'</span>':'')+(m.department?' · <span class="muted">'+esc(m.department)+'</span>':'')+((m.academicYear||m.section)?' · <span class="muted">'+[m.academicYear?'Yr '+esc(m.academicYear):'',m.section?'Sec '+esc(m.section):''].filter(Boolean).join(' ')+'</span>':'')+((m.email||m.phone)?'<br><span class="muted" style="font-size:10px">'+[m.email?esc(m.email):'',m.phone?'📱 '+esc(m.phone):''].filter(Boolean).join(' · ')+'</span>':'')+'</div>').join('')
         + '</div>'
-      : '<strong>'+esc(r.name)+'</strong><br><span class="muted">'+esc(r.email)+(r.phone?' · 📱 '+esc(r.phone):'')+'</span>';
+      : (teamTitleHtml + '<strong>'+esc(r.name)+'</strong><br><span class="muted">'+esc(r.email)+(r.phone?' · 📱 '+esc(r.phone):'')+'</span>');
     const academicHtml=hasTeam
       ? '<div><span class="muted" style="font-size:10.5px">Lead:</span> '+esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br><span class="muted">Reg: '+esc(r.registerNumber)+'</span></div>'
       : esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br>'+esc(r.registerNumber);
@@ -1640,20 +1656,289 @@ $('adminEventSelect').addEventListener('change',()=>{adminSelectedEvent=$('admin
 $('participantSearch').addEventListener('input',()=>{clearTimeout(loadParticipants.t);loadParticipants.t=setTimeout(loadParticipants,250)});
 $('participantAttFilter').addEventListener('change',loadParticipants);
 /* ── on-spot registration ── */
+let onspotTeamMembers = [];
+
+function saveOnspotTeamInputsToState(){
+  const cards = document.querySelectorAll('#onspotTeamMembersList [data-onspot-member-idx]');
+  cards.forEach(card => {
+    const idx = +card.dataset.onspotMemberIdx;
+    if(onspotTeamMembers[idx]){
+      const currentMem = onspotTeamMembers[idx];
+      currentMem.name = card.querySelector('.m-name')?.value || '';
+      currentMem.registerNumber = card.querySelector('.m-regno')?.value || '';
+      currentMem.department = card.querySelector('.m-dept')?.value || '';
+      currentMem.academicYear = card.querySelector('.m-year')?.value || '';
+      currentMem.section = card.querySelector('.m-section')?.value || '';
+      currentMem.email = card.querySelector('.m-email')?.value || '';
+      currentMem.phone = card.querySelector('.m-phone')?.value || '';
+    }
+  });
+}
+
+function getSelectedOnspotEvent(){
+  const sel = $('onspotEventSelect');
+  if(!sel || !sel.value) return null;
+  return adminEvents.find(e => e.id === sel.value) || eventById(sel.value) || null;
+}
+
+function renderOnspotTeamForm(){
+  const ev = getSelectedOnspotEvent() || adminEvents[0] || null;
+  const rules = getEventTeamRules(ev);
+  const total = 1 + onspotTeamMembers.length;
+  if($('onspotTeamRulesLabel')) $('onspotTeamRulesLabel').textContent = rules.name + ' Team Members (Lead + ' + onspotTeamMembers.length + ' = ' + total + ')';
+  if($('onspotTeamRulesHint')) $('onspotTeamRulesHint').textContent = rules.hint;
+
+  const btn = $('onspotAddMemberBtn');
+  if(btn){
+    if(total >= rules.max){
+      btn.disabled = true;
+      btn.textContent = '+ Add Member (Max ' + rules.max + ')';
+      btn.title = 'Maximum team size reached for ' + rules.name;
+    }else{
+      btn.disabled = false;
+      btn.textContent = '+ Add Member';
+      btn.title = '';
+    }
+  }
+
+  const list = $('onspotTeamMembersList');
+  if(!list) return;
+  if(!onspotTeamMembers.length){
+    list.innerHTML = (rules.min > 1)
+      ? '<div class="notice" style="font-size:12px;padding:8px 12px">This event requires at least ' + rules.min + ' members. Click "+ Add Member" to add team members.</div>'
+      : '<div class="helper" style="font-size:12px;color:var(--muted)">No additional members added (individual registration). Click "+ Add Member" to form a team.</div>';
+    return;
+  }
+
+  list.innerHTML = onspotTeamMembers.map((m, idx) => {
+    const memNum = idx + 2;
+    const isRequired = memNum <= rules.min;
+    return '<div class="card" data-onspot-member-idx="' + idx + '" style="background:rgba(255,255,255,.9);border:1px solid rgba(87,189,232,.3);border-radius:14px;padding:12px 14px;margin-top:4px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">' +
+        '<strong style="font-size:12px;color:var(--ink)">Member ' + memNum + ' ' + (isRequired ? '<span style="color:#d44969;font-size:10px;font-weight:700">(Required)</span>' : '<span style="color:#159873;font-size:10px;font-weight:600">(Optional)</span>') + '</strong>' +
+        '<div style="display:flex;gap:6px;align-items:center">' +
+          '<button type="button" class="mini make-lead-btn" data-onspot-make-lead-idx="' + idx + '" style="padding:3px 10px;font-size:10px;border-radius:999px;background:rgba(91,178,240,.15);color:var(--ink);border:1px solid rgba(91,178,240,.4)" title="Set this member as Team Leader">Set as Team Leader</button>' +
+          '<button type="button" class="mini danger remove-member-btn" data-onspot-remove-idx="' + idx + '" style="padding:3px 10px;font-size:10px;border-radius:999px">Remove</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">' +
+        '<div class="field"><label class="label">Full name</label><input class="m-name" required placeholder="Member name" value="' + esc(m.name || '') + '"></div>' +
+        '<div class="field"><label class="label">Department</label><input class="m-dept" placeholder="CSE" value="' + esc(m.department || '') + '"></div>' +
+        '<div class="field"><label class="label">Year</label><select class="m-year"><option value="" disabled' + (!m.academicYear ? ' selected' : '') + '>Select Year</option><option value="I"' + (m.academicYear === 'I' ? ' selected' : '') + '>I</option><option value="II"' + (m.academicYear === 'II' ? ' selected' : '') + '>II</option><option value="III"' + (m.academicYear === 'III' ? ' selected' : '') + '>III</option></select></div>' +
+        '<div class="field"><label class="label">Section</label><input class="m-section" placeholder="A" value="' + esc(m.section || '') + '"></div>' +
+        '<div class="field"><label class="label">Register number</label><input class="m-regno" required placeholder="Member Reg.No" value="' + esc(m.registerNumber || '') + '"></div>' +
+        '<div class="field"><label class="label">Email</label><input class="m-email" type="email" placeholder="member@example.com" value="' + esc(m.email || '') + '"></div>' +
+        '<div class="field full"><label class="label">Mobile number</label><input class="m-phone" type="tel" placeholder="10-digit mobile number" value="' + esc(m.phone || '') + '"></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function syncOnspotTeamForEvent(ev){
+  const rules = getEventTeamRules(ev);
+  if(rules.name === 'NeuroForge'){
+    while(onspotTeamMembers.length < 2){
+      onspotTeamMembers.push({ name: '', registerNumber: '', department: '', academicYear: '', section: '', email: '', phone: '' });
+    }
+  }
+  const maxAdd = rules.max - 1;
+  if(onspotTeamMembers.length > maxAdd){
+    onspotTeamMembers = onspotTeamMembers.slice(0, maxAdd);
+  }
+  renderOnspotTeamForm();
+}
+
+if($('onspotAddMemberBtn')){
+  $('onspotAddMemberBtn').onclick = () => {
+    saveOnspotTeamInputsToState();
+    const ev = getSelectedOnspotEvent() || adminEvents[0] || null;
+    const rules = getEventTeamRules(ev);
+    if(1 + onspotTeamMembers.length >= rules.max) return;
+    onspotTeamMembers.push({ name: '', registerNumber: '', department: '', academicYear: '', section: '', email: '', phone: '' });
+    renderOnspotTeamForm();
+  };
+}
+
+if($('onspotTeamMembersList')){
+  $('onspotTeamMembersList').addEventListener('click', e => {
+    const leadBtn = e.target.closest('[data-onspot-make-lead-idx]');
+    if(leadBtn){
+      saveOnspotTeamInputsToState();
+      const idx = +leadBtn.dataset.onspotMakeLeadIdx;
+      if(idx >= 0 && idx < onspotTeamMembers.length){
+        const chosen = onspotTeamMembers[idx];
+        const oldLead = {
+          name: $('spotName').value.trim(),
+          registerNumber: $('spotRegno').value.trim(),
+          department: $('spotDept').value.trim(),
+          academicYear: $('spotYear').value,
+          section: $('spotSection').value.trim(),
+          email: $('spotEmail').value.trim(),
+          phone: $('spotPhone') ? $('spotPhone').value.trim() : ''
+        };
+        $('spotName').value = chosen.name || '';
+        $('spotRegno').value = chosen.registerNumber || '';
+        $('spotDept').value = chosen.department || '';
+        if(chosen.academicYear) $('spotYear').value = chosen.academicYear;
+        if(chosen.section) $('spotSection').value = chosen.section;
+        if(chosen.email && $('spotEmail')) $('spotEmail').value = chosen.email;
+        if(chosen.phone && $('spotPhone')) $('spotPhone').value = chosen.phone;
+        onspotTeamMembers[idx] = oldLead;
+        renderOnspotTeamForm();
+        toast('Team Leader changed', 'Please verify ' + (chosen.name || 'the new leader') + "'s details.");
+      }
+      return;
+    }
+    const rm = e.target.closest('[data-onspot-remove-idx]');
+    if(!rm) return;
+    saveOnspotTeamInputsToState();
+    const idx = +rm.dataset.onspotRemoveIdx;
+    onspotTeamMembers.splice(idx, 1);
+    renderOnspotTeamForm();
+  });
+  $('onspotTeamMembersList').addEventListener('input', () => {
+    saveOnspotTeamInputsToState();
+  });
+}
+
+if($('onspotEventSelect')){
+  $('onspotEventSelect').addEventListener('change', () => {
+    const ev = getSelectedOnspotEvent();
+    if(ev) syncOnspotTeamForEvent(ev);
+  });
+}
+
 $('onspotForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const f=e.currentTarget,msg=$('onspotMsg'),btn=$('onspotSubmit'),label=btn.textContent;
-  msg.textContent='';btn.disabled=true;btn.textContent='Registering…';
+  msg.textContent='';
+  if(!f.checkValidity()){
+    msg.textContent='Please complete every field with valid details.';
+    f.reportValidity();
+    return;
+  }
+  const eventId=$('onspotEventSelect').value;
+  if(!eventId){
+    msg.textContent='Please choose an event.';
+    return;
+  }
+  const ev=getSelectedOnspotEvent();
+  if(!ev){
+    msg.textContent='Selected event is not found.';
+    return;
+  }
+
+  const spotYearVal=$('spotYear').value;
+  if(!spotYearVal || spotYearVal === 'Select Year' || spotYearVal === 'Select'){
+    msg.textContent='Please choose a valid Year before registering on-spot.';
+    $('spotYear').focus();
+    return;
+  }
+
+  saveOnspotTeamInputsToState();
+  const rules = getEventTeamRules(ev);
+  const validMembers = onspotTeamMembers.filter(m => (m.name || '').trim() || (m.registerNumber || '').trim());
+  const totalMembers = 1 + validMembers.length;
+
+  if(totalMembers < rules.min){
+    msg.textContent = rules.name + ' requires at least ' + rules.min + ' members (minimum ' + rules.min + ', maximum ' + rules.max + '). Currently: ' + totalMembers + ' member' + (totalMembers === 1 ? '' : 's') + '.';
+    return;
+  }
+  if(totalMembers > rules.max){
+    msg.textContent = rules.name + ' allows a maximum of ' + rules.max + ' members. Currently: ' + totalMembers + '.';
+    return;
+  }
+  for(let idx = 0; idx < validMembers.length; idx++){
+    const m = validMembers[idx];
+    if(!m.name.trim() || !m.registerNumber.trim()){
+      msg.textContent = 'Please provide both Full Name and Register Number for Member ' + (idx + 2) + '.';
+      return;
+    }
+  }
+
+  const spotEmailVal = $('spotEmail').value.trim();
+  if(!spotEmailVal){
+    msg.textContent = "Please enter the team leader's email address.";
+    $('spotEmail').focus();
+    return;
+  }
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if(!emailRe.test(spotEmailVal)){
+    msg.textContent = "Please enter a valid email address for the team leader.";
+    $('spotEmail').focus();
+    return;
+  }
+
+  const phoneInput = $('spotPhone');
+  const spotPhoneVal = phoneInput ? phoneInput.value.trim() : '';
+  if(!spotPhoneVal){
+    msg.textContent = "Please enter the team leader's mobile number.";
+    if(phoneInput) phoneInput.focus();
+    return;
+  }
+  const cleanPhone = spotPhoneVal.replace(/[\s\-\(\)]/g, '');
+  const isValidPhone = /^(\+?91|0)?[6-9]\d{9}$/.test(cleanPhone) || /^\d{10,12}$/.test(cleanPhone);
+  if(!isValidPhone){
+    msg.textContent = "Please enter a valid 10-digit mobile number for the team leader.";
+    if(phoneInput) phoneInput.focus();
+    return;
+  }
+
+  btn.disabled=true;btn.textContent='Registering…';
   try{
-    const spotPhoneVal=$('spotPhone')?$('spotPhone').value.trim():'';
-    const d=await api('/api/admin/registrations',{method:'POST',body:{eventId:$('onspotEventSelect').value,name:$('spotName').value.trim(),registerNumber:$('spotRegno').value.trim(),department:$('spotDept').value.trim(),academicYear:$('spotYear').value,section:$('spotSection').value.trim(),email:$('spotEmail').value.trim(),phone:spotPhoneVal||undefined}});
+    const teamNameVal = $('spotTeamName') ? $('spotTeamName').value.trim() : '';
+    const payload = {
+      eventId,
+      teamName: teamNameVal,
+      name: $('spotName').value.trim(),
+      registerNumber: $('spotRegno').value.trim(),
+      department: $('spotDept').value.trim(),
+      academicYear: spotYearVal,
+      section: $('spotSection').value.trim(),
+      email: spotEmailVal,
+      phone: spotPhoneVal,
+      teamMembers: validMembers
+    };
+
+    const d=await api('/api/admin/registrations',{method:'POST',body:payload});
     msg.textContent='Pass created · '+d.pass.registrationId;
     toast('On-spot registration',d.pass.student.name+' → '+d.pass.event.name);
-    showInfo('On-spot pass created',d.pass.registrationId+' · '+d.pass.sourceLabel,'<div class="success">'+esc(d.pass.student.name)+' ('+esc(d.pass.student.registerNumber)+') registered for '+esc(d.pass.event.name)+'.<br>Scan this QR at the desk or let the student keep it.</div><div class="qr-inline"><img alt="QR pass" src="'+d.pass.qr.svgDataUrl+'"></div>');
+
+    const teamHtml = (d.pass.teamMembers && d.pass.teamMembers.length)
+      ? '<div style="margin-top:8px;font-size:12px;color:var(--ink)">' +
+        (d.pass.teamName ? '<strong>Team:</strong> ' + esc(d.pass.teamName) + '<br>' : '') +
+        '<strong>Team (' + (d.pass.teamMembers.length + 1) + '):</strong> ' +
+        esc(d.pass.student.name) + ' (Lead), ' +
+        esc(d.pass.teamMembers.map(m => m.name + ' (' + m.registerNumber + ')').join(', ')) + '</div>'
+      : (d.pass.teamName ? '<div style="margin-top:8px;font-size:12px;color:var(--ink)"><strong>Team:</strong> ' + esc(d.pass.teamName) + '</div>' : '');
+
+    showInfo(
+      'On-spot pass created',
+      d.pass.registrationId+' · '+d.pass.sourceLabel,
+      '<div class="success">'+esc(d.pass.student.name)+' ('+esc(d.pass.student.registerNumber)+') registered for '+esc(d.pass.event.name)+'.'+
+      teamHtml+
+      '<br><span style="display:inline-block;margin-top:6px">Scan this QR at the desk or download the official PDF pass.</span></div>'+
+      '<div class="qr-inline"><img alt="QR pass" src="'+d.pass.qr.svgDataUrl+'"></div>'+
+      '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'+
+        '<button class="cta" type="button" id="onspotDownloadPdf" style="padding:9px 18px;font-size:12px;border-radius:10px">📄 Download Event Pass (PDF)</button>'+
+      '</div>'
+    );
+    setTimeout(() => {
+      const b = $('onspotDownloadPdf');
+      if (b) b.onclick = () => downloadPassPdf(d.pass);
+    }, 50);
+
     f.reset();
-    await refreshAdmin();await loadEvents();
-  }catch(ex){msg.textContent=ex.message}
-  finally{btn.disabled=false;btn.textContent=label}
+    onspotTeamMembers = [];
+    syncOnspotTeamForEvent(ev);
+    await refreshAdmin();
+    await loadEvents();
+  }catch(ex){
+    msg.textContent=ex.message||'On-spot registration failed.';
+  }finally{
+    btn.disabled=false;
+    btn.textContent=label;
+  }
 });
 /* ── QR scanner (camera) + manual verification ── */
 function setScanStatus(kind,title,body){const box=$('scanResult');box.dataset.kind=kind;box.innerHTML='<strong>'+esc(title)+'</strong>'+body}

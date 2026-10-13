@@ -65,6 +65,7 @@ const eventBodySchema = z.object({
 
 const onSpotSchema = z.object({
   eventId: z.string().trim().min(1, 'Choose the event'),
+  teamName: z.string().trim().max(120).optional().or(z.literal('')),
   name,
   registerNumber,
   department,
