@@ -9,33 +9,50 @@ const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C1
 const HEADER_FONT = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
 const ALT_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F3FF' } };
 
-const COLUMNS = [
-  { header: 'S.No', key: 'sno', width: 7 },
-  { header: 'Registration ID', key: 'registrationId', width: 20 },
-  { header: 'Student Name', key: 'name', width: 26 },
-  { header: 'Register Number', key: 'registerNumber', width: 20 },
-  { header: 'Department', key: 'department', width: 34 },
-  { header: 'Year', key: 'academicYear', width: 9 },
-  { header: 'Section', key: 'section', width: 10 },
-  { header: 'Email', key: 'email', width: 32 },
-  { header: 'Phone', key: 'phone', width: 15 },
-  { header: 'Registration Date', key: 'regDate', width: 14 },
-  { header: 'Registration Time', key: 'regTime', width: 13 },
-  { header: 'Method', key: 'source', width: 12 },
-  { header: 'Attendance', key: 'attendance', width: 13 },
-  { header: 'Checked-in Date', key: 'inDate', width: 16 },
-  { header: 'Checked-in Time', key: 'inTime', width: 15 },
-];
+/**
+ * Returns complete column definitions for registration exports.
+ * Base supports 27 columns (Team Leader + Members 2, 3, 4).
+ * If extra members exist (e.g. Member 5+), additional column groups are dynamically appended.
+ */
+function getColumns(maxExtraMembers = 3) {
+  const cols = [
+    { header: 'Registration ID', key: 'registrationId', width: 22 },
+    { header: 'Event Name', key: 'eventName', width: 26 },
+    { header: 'Team Name', key: 'teamName', width: 22 },
+    { header: 'Team Leader Name', key: 'leaderName', width: 26 },
+    { header: 'Team Leader Register Number', key: 'leaderRegisterNumber', width: 28 },
+    { header: 'Team Leader Department', key: 'leaderDepartment', width: 32 },
+    { header: 'Team Leader Year', key: 'leaderAcademicYear', width: 18 },
+    { header: 'Team Leader Section', key: 'leaderSection', width: 18 },
+    { header: 'Team Leader Email', key: 'leaderEmail', width: 30 },
+    { header: 'Team Leader Mobile Number', key: 'leaderPhone', width: 26 },
+  ];
+
+  const memberSlots = Math.max(3, Number(maxExtraMembers) || 3);
+  for (let m = 2; m <= memberSlots + 1; m += 1) {
+    cols.push(
+      { header: `Team Member ${m} Name`, key: `member${m}Name`, width: 24 },
+      { header: `Team Member ${m} Register Number`, key: `member${m}RegisterNumber`, width: 28 },
+      { header: `Team Member ${m} Department`, key: `member${m}Department`, width: 30 },
+      { header: `Team Member ${m} Year`, key: `member${m}AcademicYear`, width: 18 },
+      { header: `Team Member ${m} Section`, key: `member${m}Section`, width: 18 }
+    );
+  }
+
+  cols.push(
+    { header: 'Registration Date', key: 'regDate', width: 18 },
+    { header: 'Attendance Status', key: 'attendance', width: 18 }
+  );
+
+  return cols;
+}
+
+const COLUMNS = getColumns(3);
 
 function iconFor(event) {
   return event.category === 'TECHNICAL' ? '⚙' : '★';
 }
 
-/**
- * ExcelJS writes a header row as soon as `sheet.columns` is assigned. We only want
- * column *widths* there, because every sheet starts with a title/meta block — so we
- * set widths directly and add the real header row with addRow() where it belongs.
- */
 function applyWidths(sheet, keys, columns) {
   keys.forEach((key, i) => {
     const col = columns[i];
@@ -65,64 +82,95 @@ function sanitizeSheetName(name, used = new Set()) {
   return candidate;
 }
 
-function rowsForEvent(registrations) {
-  return registrations.map((r, i) => {
+/**
+ * Attaches stored team members and team names from SiteSetting to registration records.
+ */
+async function attachTeamMembers(registrations) {
+  if (!registrations || !registrations.length) return;
+  const regKeys = registrations.map((r) => 'team_' + r.registrationId);
+  const nameKeys = registrations.map((r) => 'team_name_' + r.registrationId);
+  const allKeys = [...regKeys, ...nameKeys];
+
+  const rows = await prisma.siteSetting.findMany({
+    where: { key: { in: allKeys } },
+  });
+
+  const teamMap = new Map();
+  const nameMap = new Map();
+  rows.forEach((row) => {
+    try {
+      if (row.key.startsWith('team_name_')) {
+        nameMap.set(row.key.replace(/^team_name_/, ''), row.value);
+      } else {
+        teamMap.set(row.key.replace(/^team_/, ''), JSON.parse(row.value));
+      }
+    } catch (_) {}
+  });
+
+  registrations.forEach((r) => {
+    r.teamMembers = teamMap.get(r.registrationId) || [];
+    r.teamName = nameMap.get(r.registrationId) || '';
+  });
+}
+
+function rowsForEvent(registrations, maxExtraMembers = 3) {
+  const memberSlots = Math.max(3, Number(maxExtraMembers) || 3);
+  return registrations.map((r) => {
     const regDate = time.dateToIstInputs(r.createdAt);
-    const inDate = r.checkedInAt ? time.dateToIstInputs(r.checkedInAt) : { date: '', time: '' };
+    const members = Array.isArray(r.teamMembers) ? r.teamMembers : [];
+    const values = [
+      r.registrationId,
+      r.event ? r.event.name : '',
+      r.teamName || '',
+      r.student ? r.student.name : '',
+      r.student ? r.student.registerNumber : '',
+      r.student ? r.student.department : '',
+      r.student ? r.student.academicYear : '',
+      r.student ? r.student.section : '',
+      r.student ? r.student.email : '',
+      r.student && r.student.phone ? r.student.phone : '',
+    ];
+
+    for (let slot = 0; slot < memberSlots; slot += 1) {
+      const m = members[slot];
+      values.push(
+        m ? (m.name || '') : '',
+        m ? (m.registerNumber || '') : '',
+        m ? (m.department || '') : '',
+        m ? (m.academicYear || '') : '',
+        m ? (m.section || '') : ''
+      );
+    }
+
+    values.push(
+      regDate.date,
+      r.attendanceStatus === 'PRESENT' ? 'Present' : r.attendanceStatus === 'ABSENT' ? 'Absent' : 'Pending'
+    );
+
     return {
-      sno: i + 1,
       registrationId: r.registrationId,
-      name: r.student.name,
-      registerNumber: r.student.registerNumber,
-      department: r.student.department,
-      academicYear: r.student.academicYear,
-      section: r.student.section,
-      email: r.student.email,
-      phone: r.student.phone || '',
-      regDate: regDate.date,
-      regTime: time.fmtTime(r.createdAt),
-      source: r.source === 'ON_SPOT' ? 'On-Spot' : 'Website',
-      attendance: r.attendanceStatus === 'PRESENT' ? 'Present' : r.attendanceStatus === 'ABSENT' ? 'Absent' : 'Pending',
-      inDate: inDate.date,
-      inTime: r.checkedInAt ? time.fmtTime(r.checkedInAt) : '',
       _attendanceRaw: r.attendanceStatus,
+      values,
     };
   });
 }
 
-function addEventMeta(sheet, event, rows, summary) {
+function addEventMeta(sheet, event, rows, summary, columnCount) {
   const title = sheet.addRow([`${event.name}  (${event.code})`]);
   title.font = { bold: true, size: 14, color: { argb: 'FF3B0764' } };
-  sheet.mergeCells(title.number, 1, title.number, COLUMNS.length);
+  sheet.mergeCells(title.number, 1, title.number, columnCount);
 
   const meta = sheet.addRow([
     `${event.category === 'TECHNICAL' ? 'Technical' : 'Non-Technical'} · ${event.venue} · ${time.fmtRange(event.startsAt, event.endsAt)}`,
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
-    time.fmtDate(event.startsAt),
-    '',
-    '',
-    '',
-    '',
-    '',
   ]);
   meta.getCell(1).font = { size: 10, italic: true, color: { argb: 'FF6B7280' } };
-  sheet.mergeCells(meta.number, 1, meta.number, COLUMNS.length);
+  sheet.mergeCells(meta.number, 1, meta.number, columnCount);
 
-  // The totals row is deliberately NOT merged: each figure stays in its own cell so
-  // Present / Pending / Absent are all readable in Excel and by other tools.
   const totals = sheet.addRow([
     `Total registrations: ${summary.total}`,
     `Present: ${summary.present}`,
     `Pending: ${summary.pending}`,
     `Absent: ${summary.absent}`,
-    '', '', '', '', '', '', '', '', '', '', '',
   ]);
   [1, 2, 3, 4].forEach((c) => {
     const cell = totals.getCell(c);
@@ -140,6 +188,7 @@ async function loadEventWithRegistrations(eventId) {
     include: registrationInclude,
     orderBy: { createdAt: 'asc' },
   });
+  await attachTeamMembers(registrations);
   return { event, registrations };
 }
 
@@ -147,10 +196,12 @@ function safeFilePart(name) {
   return String(name || 'Event').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'Event';
 }
 
-/** One workbook per event — rows always match the selected event's participant list. */
+/** One workbook per event — complete 27 columns with all team members included */
 async function buildEventWorkbook(eventId) {
   const { event, registrations } = await loadEventWithRegistrations(eventId);
-  const rows = rowsForEvent(registrations);
+  const maxExtra = Math.max(3, ...registrations.map((r) => (Array.isArray(r.teamMembers) ? r.teamMembers.length : 0)));
+  const columns = getColumns(maxExtra);
+  const rows = rowsForEvent(registrations, maxExtra);
   const summary = {
     total: rows.length,
     present: rows.filter((r) => r._attendanceRaw === 'PRESENT').length,
@@ -162,22 +213,23 @@ async function buildEventWorkbook(eventId) {
   wb.creator = 'Spark’26 Admin Workspace';
   wb.created = new Date();
   const sheet = wb.addWorksheet(sanitizeSheetName('Registrations'));
-  applyWidths(sheet, COLUMNS.map((c) => c.key), COLUMNS);
-  addEventMeta(sheet, event, rows, summary);
+  applyWidths(sheet, columns.map((c) => c.key), columns);
+  addEventMeta(sheet, event, rows, summary, columns.length);
 
-  const headerRow = sheet.addRow(COLUMNS.map((c) => c.header));
+  const headerRow = sheet.addRow(columns.map((c) => c.header));
   styleHeaderRow(headerRow);
   rows.forEach((r, idx) => {
-    const row = sheet.addRow([r.sno, r.registrationId, r.name, r.registerNumber, r.department, r.academicYear, r.section, r.email, r.phone, r.regDate, r.regTime, r.source, r.attendance, r.inDate, r.inTime]);
+    const row = sheet.addRow(r.values);
     if (idx % 2 === 1) row.eachCell((cell) => { cell.fill = ALT_FILL; });
-    row.getCell(13).font = { bold: r.attendance === 'Present', color: { argb: r.attendance === 'Present' ? 'FF047857' : 'FF6B7280' } };
+    const attCell = row.getCell(columns.length);
+    const isPresent = attCell.value === 'Present';
+    attCell.font = { bold: isPresent, color: { argb: isPresent ? 'FF047857' : 'FF6B7280' } };
     row.alignment = { vertical: 'middle' };
   });
 
   sheet.views = [{ state: 'frozen', ySplit: headerRow.number }];
-  sheet.autoFilter = { from: { row: headerRow.number, column: 1 }, to: { row: headerRow.number, column: COLUMNS.length } };
-  sheet.getColumn(10).numFmt = '@';   // Registration Date  (text, keeps "2026-10-18" intact)
-  sheet.getColumn(14).numFmt = '@';   // Checked-in Date
+  sheet.autoFilter = { from: { row: headerRow.number, column: 1 }, to: { row: headerRow.number, column: columns.length } };
+  sheet.getColumn(columns.length - 1).numFmt = '@'; // Registration Date
 
   const buffer = await wb.xlsx.writeBuffer();
   return { buffer, filename: `Spark26_${safeFilePart(event.name)}_Registrations.xlsx`, event, count: rows.length, summary };
@@ -217,16 +269,35 @@ async function buildMasterWorkbook({ statuses = ['PUBLISHED', 'DRAFT', 'COMPLETE
   const headerRow = summary.addRow(SUMMARY_COLUMNS.map((c) => c.header));
   styleHeaderRow(headerRow);
 
+  // Pre-load all registrations and attach team members
+  const eventRegMap = new Map();
+  let globalMaxExtra = 3;
+  for (const event of events) {
+    const regs = await prisma.registration.findMany({
+      where: { eventId: event.id },
+      include: registrationInclude,
+      orderBy: { createdAt: 'asc' },
+    });
+    await attachTeamMembers(regs);
+    eventRegMap.set(event.id, regs);
+    for (const r of regs) {
+      if (Array.isArray(r.teamMembers) && r.teamMembers.length > globalMaxExtra) {
+        globalMaxExtra = r.teamMembers.length;
+      }
+    }
+  }
+
+  const columns = getColumns(globalMaxExtra);
   const used = new Set(['summary']);
   let totalRegs = 0;
   let totalPresent = 0;
 
   for (const event of events) {
-    const registrations = await prisma.registration.findMany({ where: { eventId: event.id }, include: registrationInclude, orderBy: { createdAt: 'asc' } });
-    const rows = rowsForEvent(registrations);
+    const registrations = eventRegMap.get(event.id) || [];
+    const rows = rowsForEvent(registrations, globalMaxExtra);
     const present = rows.filter((r) => r._attendanceRaw === 'PRESENT').length;
     const pending = rows.filter((r) => r._attendanceRaw === 'PENDING').length;
-    const onspot = rows.filter((r) => r.source === 'On-Spot').length;
+    const onspot = registrations.filter((r) => r.source === 'ON_SPOT').length;
     totalRegs += rows.length;
     totalPresent += present;
 
@@ -248,16 +319,21 @@ async function buildMasterWorkbook({ statuses = ['PUBLISHED', 'DRAFT', 'COMPLETE
     row.alignment = { vertical: 'middle' };
 
     const sheet = wb.addWorksheet(sanitizeSheetName(`${iconFor(event)} ${event.name}`, used));
-    applyWidths(sheet, COLUMNS.map((c) => c.key), COLUMNS);
-    addEventMeta(sheet, event, rows, { total: rows.length, present, pending, absent: rows.length - present - pending });
-    const hr = sheet.addRow(COLUMNS.map((c) => c.header));
+    applyWidths(sheet, columns.map((c) => c.key), columns);
+    addEventMeta(sheet, event, rows, { total: rows.length, present, pending, absent: rows.length - present - pending }, columns.length);
+    const hr = sheet.addRow(columns.map((c) => c.header));
     styleHeaderRow(hr);
     rows.forEach((r, idx) => {
-      const r2 = sheet.addRow([r.sno, r.registrationId, r.name, r.registerNumber, r.department, r.academicYear, r.section, r.email, r.phone, r.regDate, r.regTime, r.source, r.attendance, r.inDate, r.inTime]);
+      const r2 = sheet.addRow(r.values);
       if (idx % 2 === 1) r2.eachCell((cell) => { cell.fill = ALT_FILL; });
+      const attCell = r2.getCell(columns.length);
+      const isPresent = attCell.value === 'Present';
+      attCell.font = { bold: isPresent, color: { argb: isPresent ? 'FF047857' : 'FF6B7280' } };
+      r2.alignment = { vertical: 'middle' };
     });
     sheet.views = [{ state: 'frozen', ySplit: hr.number }];
-    sheet.autoFilter = { from: { row: hr.number, column: 1 }, to: { row: hr.number, column: COLUMNS.length } };
+    sheet.autoFilter = { from: { row: hr.number, column: 1 }, to: { row: hr.number, column: columns.length } };
+    sheet.getColumn(columns.length - 1).numFmt = '@';
   }
 
   const totalsRow = summary.addRow(['', 'TOTAL', '', '', '', '', '', '', totalRegs, totalPresent, totalRegs - totalPresent, '', '']);
@@ -279,4 +355,41 @@ async function buildMasterWorkbook({ statuses = ['PUBLISHED', 'DRAFT', 'COMPLETE
   return { buffer, filename: `Spark26_Master_Registrations_${time.dateToIstInputs(new Date()).date}.xlsx`, events: events.length, totalRegs };
 }
 
-module.exports = { buildEventWorkbook, buildMasterWorkbook, COLUMNS };
+function toCsvCell(val) {
+  if (val == null) return '""';
+  const str = String(val);
+  if (/[",\r\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return `"${str}"`;
+}
+
+/**
+ * Builds RFC 4180 CSV with the exact same columns and complete team members.
+ */
+function buildRegistrationsCsv(registrations) {
+  const maxExtra = Math.max(3, ...registrations.map((r) => (Array.isArray(r.teamMembers) ? r.teamMembers.length : 0)));
+  const columns = getColumns(maxExtra);
+  const rows = rowsForEvent(registrations, maxExtra);
+
+  const headerLine = columns.map((c) => toCsvCell(c.header)).join(',');
+  const lines = [headerLine];
+
+  rows.forEach((r) => {
+    lines.push(r.values.map(toCsvCell).join(','));
+  });
+
+  return lines.join('\r\n');
+}
+
+module.exports = {
+  buildEventWorkbook,
+  buildMasterWorkbook,
+  buildRegistrationsCsv,
+  loadEventWithRegistrations,
+  attachTeamMembers,
+  safeFilePart,
+  getColumns,
+  COLUMNS,
+  registrationInclude,
+};

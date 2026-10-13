@@ -209,7 +209,17 @@ async function createRegistration({ event, student: studentInput, source, adminI
       });
     } catch (_) {}
   }
+  if (studentInput.teamName) {
+    try {
+      await prisma.siteSetting.upsert({
+        where: { key: 'team_name_' + created.registrationId },
+        update: { value: String(studentInput.teamName).trim() },
+        create: { key: 'team_name_' + created.registrationId, value: String(studentInput.teamName).trim() },
+      });
+    } catch (_) {}
+  }
   created.teamMembers = validMembers;
+  created.teamName = studentInput.teamName ? String(studentInput.teamName).trim() : '';
 
   await audit({
     adminId,
@@ -224,7 +234,7 @@ async function createRegistration({ event, student: studentInput, source, adminI
   return pass;
 }
 
-function shapeRegistrationRow(registration, teamMembers = []) {
+function shapeRegistrationRow(registration, teamMembers = [], teamName = '') {
   return {
     registrationId: registration.registrationId,
     dbId: registration.id,
@@ -247,6 +257,7 @@ function shapeRegistrationRow(registration, teamMembers = []) {
     eventName: registration.event.name,
     eventCode: registration.event.code,
     eventDateLabel: time.fmtDate(registration.event.startsAt),
+    teamName: teamName || registration.teamName || '',
     teamMembers: Array.isArray(teamMembers) ? teamMembers : [],
   };
 }
@@ -278,18 +289,25 @@ async function listRegistrations({ eventId, search = '', attendance = 'ALL', pag
   ]);
 
   const regKeys = rows.map((r) => 'team_' + r.registrationId);
-  const teamRows = regKeys.length
-    ? await prisma.siteSetting.findMany({ where: { key: { in: regKeys } } })
+  const nameKeys = rows.map((r) => 'team_name_' + r.registrationId);
+  const allKeys = [...regKeys, ...nameKeys];
+  const teamRows = allKeys.length
+    ? await prisma.siteSetting.findMany({ where: { key: { in: allKeys } } })
     : [];
   const teamMap = new Map();
+  const nameMap = new Map();
   teamRows.forEach((tr) => {
     try {
-      teamMap.set(tr.key.replace(/^team_/, ''), JSON.parse(tr.value));
+      if (tr.key.startsWith('team_name_')) {
+        nameMap.set(tr.key.replace(/^team_name_/, ''), tr.value);
+      } else {
+        teamMap.set(tr.key.replace(/^team_/, ''), JSON.parse(tr.value));
+      }
     } catch (_) {}
   });
 
   return {
-    registrations: rows.map((r) => shapeRegistrationRow(r, teamMap.get(r.registrationId) || [])),
+    registrations: rows.map((r) => shapeRegistrationRow(r, teamMap.get(r.registrationId) || [], nameMap.get(r.registrationId) || '')),
     pagination: { page: Number(page) || 1, pageSize: take, total, pages: Math.max(1, Math.ceil(total / take)) },
   };
 }
@@ -346,7 +364,7 @@ async function deleteRegistration({ id, adminId, ip = null }) {
   // Safely clean up team metadata associated with this registration in SiteSetting
   try {
     await prisma.siteSetting.deleteMany({
-      where: { key: 'team_' + registration.registrationId },
+      where: { key: { in: ['team_' + registration.registrationId, 'team_name_' + registration.registrationId] } },
     });
   } catch (_) {}
 

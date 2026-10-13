@@ -147,7 +147,7 @@ test('postgres distributed rate limiter persists atomic counters and sets Retry-
   assert.equal(hit2.totalHits, 2);
   await store.resetKey(key);
 
-  const limiter = build({ windowMs: 30_000, max: 2, message: 'Too many requests.', alwaysOn: true, prefix: 'rl:testsuite:' });
+  const limiter = build({ windowMs: 30_000, max: 2, message: 'Too many requests.', alwaysOn: true, prefix: `rl:testsuite:${Date.now()}:` });
   const app = require('express')();
   app.set('trust proxy', 1);
   app.get('/test-rl', limiter, (_req, res) => res.json({ ok: true }));

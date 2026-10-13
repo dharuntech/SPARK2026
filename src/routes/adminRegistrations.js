@@ -120,6 +120,55 @@ router.get(
   })
 );
 
+/** GET /api/admin/events/:id/registrations.csv — event-wise CSV export */
+router.get(
+  '/events/:id/registrations.csv',
+  asyncHandler(async (req, res) => {
+    const { event, registrations } = await excel.loadEventWithRegistrations(req.params.id);
+    const csvContent = excel.buildRegistrationsCsv(registrations);
+    const filename = `Spark26_${excel.safeFilePart(event.name)}_Registrations.csv`;
+    await audit({
+      adminId: req.admin.id,
+      action: 'export.event_csv',
+      entityType: 'Event',
+      entityId: event.id,
+      metadata: { filename, rows: registrations.length },
+      ip: req.ip,
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Export-Rows', String(registrations.length));
+    res.send(csvContent);
+  })
+);
+
+/** GET /api/admin/export/registrations.csv — all registrations CSV export */
+router.get(
+  '/export/registrations.csv',
+  asyncHandler(async (req, res) => {
+    const registrations = await (require('../lib/prisma')).registration.findMany({
+      include: excel.registrationInclude,
+      orderBy: [{ eventId: 'asc' }, { createdAt: 'asc' }],
+    });
+    await excel.attachTeamMembers(registrations);
+    const csvContent = excel.buildRegistrationsCsv(registrations);
+    const time = require('../lib/time');
+    const filename = `Spark26_Registrations_${time.dateToIstInputs(new Date()).date}.csv`;
+    await audit({
+      adminId: req.admin.id,
+      action: 'export.master_csv',
+      entityType: 'Registration',
+      entityId: null,
+      metadata: { filename, rows: registrations.length },
+      ip: req.ip,
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Export-Rows', String(registrations.length));
+    res.send(csvContent);
+  })
+);
+
 /** DELETE /api/admin/registrations/:id — permanently delete an individual registration record (admin only). */
 router.delete(
   '/registrations/:id',

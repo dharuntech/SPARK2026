@@ -1106,13 +1106,13 @@ function downloadPassPdf(p){
         role: 'Team Leader',
         name: p.student.name,
         regno: p.student.registerNumber,
-        dept: (p.student.department || '—') + (p.student.academicYear ? ' · Yr ' + p.student.academicYear : '')
+        dept: (p.student.department || '—') + (p.student.academicYear ? ' · Yr ' + p.student.academicYear : '') + (p.student.section ? ' (' + p.student.section + ')' : '')
       },
       ...p.teamMembers.map((m, idx) => ({
         role: 'Member ' + (idx + 2),
         name: m.name || '—',
         regno: m.registerNumber || '—',
-        dept: (m.department || '—') + (m.academicYear ? ' · Yr ' + m.academicYear : '')
+        dept: (m.department || '—') + (m.academicYear ? ' · Yr ' + m.academicYear : '') + (m.section ? ' (' + m.section + ')' : '')
       }))
     ];
 
@@ -1131,9 +1131,9 @@ function downloadPassPdf(p){
     doc.setFontSize(6.5);
     doc.setTextColor(100, 116, 139);
     doc.text('MEMBER / ROLE', mx + 12, y + 3.4);
-    doc.text('STUDENT NAME', mx + 44, y + 3.4);
-    doc.text('REGISTER NO.', mx + 94, y + 3.4);
-    doc.text('DEPARTMENT & YEAR', mx + 132, y + 3.4);
+    doc.text('STUDENT NAME', mx + 42, y + 3.4);
+    doc.text('REGISTER NO.', mx + 90, y + 3.4);
+    doc.text('DEPARTMENT, YEAR & SEC', mx + 124, y + 3.4);
 
     teamRows.forEach((row, rIdx) => {
       const rowY = y + 5 + (rIdx * rowH) + 3.7;
@@ -1145,12 +1145,12 @@ function downloadPassPdf(p){
 
       doc.setFont('helvetica', isLead ? 'bold' : 'normal');
       doc.setTextColor(30, 41, 59);
-      doc.text(String(row.name).slice(0, 26), mx + 44, rowY);
+      doc.text(String(row.name).slice(0, 24), mx + 42, rowY);
 
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(71, 85, 105);
-      doc.text(String(row.regno), mx + 94, rowY);
-      doc.text(String(row.dept), mx + 132, rowY);
+      doc.text(String(row.regno), mx + 90, rowY);
+      doc.text(String(row.dept).slice(0, 36), mx + 124, rowY);
 
       if (rIdx < teamRows.length - 1) {
         doc.setDrawColor(241, 245, 249);
@@ -1294,14 +1294,41 @@ async function loadParticipants(){
     $('participantMeta').textContent=d.event.dateLabel+' · '+d.event.timeLabel+' · '+d.event.venue+' · '+d.event.modeLabel;
     $('participantCount').textContent=d.pagination.total+' registered · '+d.event.presentCount+' present';
     const rows=d.registrations;
-    box.innerHTML=rows.length?rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+esc(r.registrationId)+'</strong><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td>'+esc(r.name)+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'</td><td>'+esc(r.registerNumber)+'</td><td>'+esc(r.department)+'</td><td>'+esc(r.academicYear)+'</td><td>'+esc(r.section)+'</td><td>'+esc(r.email)+(r.phone?'<br><span class="muted" style="font-size:10.5px">📱 '+esc(r.phone)+'</span>':'')+'</td><td>'+esc(r.createdAtLabel)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span>'+(r.checkedInAtLabel?'<br><span class="muted">'+esc(r.checkedInAtLabel)+'</span>':'')+'</td><td><div class="table-actions" style="display:flex;gap:6px;align-items:center"><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-toggle-att="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Mark pending':'Mark present')+'</button><button class="mini danger" data-del-reg="'+esc(r.dbId)+'" data-del-name="'+esc(r.name)+'" data-del-code="'+esc(r.registrationId)+'" data-del-event="'+esc(r.eventName)+'" title="Delete registration">Delete</button></div></td></tr>').join(''):'<tr><td colspan="12" class="muted">No students registered for this event yet.</td></tr>';
+    box.innerHTML=rows.length?rows.map((r,i)=>{
+      const hasTeam=Array.isArray(r.teamMembers)&&r.teamMembers.length>0;
+      const nameHtml=hasTeam
+        ? '<div style="font-weight:700"><span class="badge" style="font-size:9px;background:rgba(124,58,237,0.25);color:#c4b5fd;padding:1px 5px;border-radius:4px;margin-right:4px">LEADER</span>'+esc(r.name)+'</div>'
+          + '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.15)">'
+          + '<div style="font-size:10px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:0.5px">Team Members:</div>'
+          + r.teamMembers.map((m,idx)=>'<div style="font-size:11px;margin-top:2px;line-height:1.3"><strong>Member '+(idx+2)+':</strong> '+esc(m.name)+(m.registerNumber?'<br><span class="muted" style="font-size:10px">Reg: '+esc(m.registerNumber)+(m.department?' · '+esc(m.department):'')+((m.academicYear||m.section)?' · '+[m.academicYear?'Yr '+esc(m.academicYear):'',m.section?'Sec '+esc(m.section):''].filter(Boolean).join(' '):'')+'</span>':'')+'</div>').join('')
+          + '</div>'
+        : '<strong>'+esc(r.name)+'</strong>';
+      const regHtml='<div><strong>'+esc(r.registerNumber)+'</strong>'+(hasTeam?'<br>'+r.teamMembers.map((m,idx)=>'<span class="muted" style="font-size:10px" title="Member '+(idx+2)+'">M'+(idx+2)+': '+esc(m.registerNumber||'—')+'</span>').join('<br>'):'')+'</div>';
+      const deptHtml='<div>'+esc(r.department)+(hasTeam?'<br>'+r.teamMembers.map((m,idx)=>'<span class="muted" style="font-size:10px" title="Member '+(idx+2)+'">M'+(idx+2)+': '+esc(m.department||'—')+'</span>').join('<br>'):'')+'</div>';
+      const yrHtml='<div>'+esc(r.academicYear)+(hasTeam?'<br>'+r.teamMembers.map((m,idx)=>'<span class="muted" style="font-size:10px" title="Member '+(idx+2)+'">M'+(idx+2)+': '+esc(m.academicYear||'—')+'</span>').join('<br>'):'')+'</div>';
+      const secHtml='<div>'+esc(r.section)+(hasTeam?'<br>'+r.teamMembers.map((m,idx)=>'<span class="muted" style="font-size:10px" title="Member '+(idx+2)+'">M'+(idx+2)+': '+esc(m.section||'—')+'</span>').join('<br>'):'')+'</div>';
+      return '<tr><td>'+(i+1)+'</td><td><strong>'+esc(r.registrationId)+'</strong><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td>'+nameHtml+'</td><td>'+regHtml+'</td><td>'+deptHtml+'</td><td>'+yrHtml+'</td><td>'+secHtml+'</td><td>'+esc(r.email)+(r.phone?'<br><span class="muted" style="font-size:10.5px">📱 '+esc(r.phone)+'</span>':'')+'</td><td>'+esc(r.createdAtLabel)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span>'+(r.checkedInAtLabel?'<br><span class="muted">'+esc(r.checkedInAtLabel)+'</span>':'')+'</td><td><div class="table-actions" style="display:flex;gap:6px;align-items:center"><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-toggle-att="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Mark pending':'Mark present')+'</button><button class="mini danger" data-del-reg="'+esc(r.dbId)+'" data-del-name="'+esc(r.name)+'" data-del-code="'+esc(r.registrationId)+'" data-del-event="'+esc(r.eventName)+'" title="Delete registration">Delete</button></div></td></tr>';
+    }).join(''):'<tr><td colspan="12" class="muted">No students registered for this event yet.</td></tr>';
   }catch(ex){box.innerHTML='<tr><td colspan="12" class="muted">'+esc(ex.message)+'</td></tr>'}
 }
 /* ── global registration list ── */
 function renderRegsTable(){
   const q=$('regSearch').value.trim().toLowerCase(),filter=$('regEventFilter').value;
   const list=adminRegRows.filter(r=>(filter==='ALL'||r.eventId===filter)&&(!q||[r.registrationId,r.name,r.email,r.phone||'',r.registerNumber,r.eventName].join(' ').toLowerCase().includes(q)));
-  $('regsTable').innerHTML=list.length?list.map(r=>'<tr><td><strong>'+esc(r.name)+'</strong>'+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'<br><span class="muted">'+esc(r.email)+(r.phone?' · 📱 '+esc(r.phone):'')+'</span></td><td>'+esc(r.eventName)+'<br><span class="muted">'+esc(r.registrationId)+'</span></td><td>'+esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br>'+esc(r.registerNumber)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td><div class="table-actions" style="display:flex;gap:6px;align-items:center"><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-att-row="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Verified':'Verify')+'</button><button class="mini danger" data-del-reg="'+esc(r.dbId)+'" data-del-name="'+esc(r.name)+'" data-del-code="'+esc(r.registrationId)+'" data-del-event="'+esc(r.eventName)+'" title="Delete registration">Delete</button></div></td></tr>').join(''):'<tr><td colspan="5" class="muted">No registrations match the selected filters.</td></tr>';
+  $('regsTable').innerHTML=list.length?list.map(r=>{
+    const hasTeam=Array.isArray(r.teamMembers)&&r.teamMembers.length>0;
+    const participantHtml=hasTeam
+      ? '<div style="margin-bottom:3px"><span class="badge" style="font-size:9px;background:rgba(124,58,237,0.25);color:#c4b5fd;padding:1px 5px;border-radius:4px;font-weight:700">TEAM LEADER</span> <strong style="margin-left:3px">'+esc(r.name)+'</strong><br><span class="muted" style="font-size:11px">'+esc(r.email)+(r.phone?' · 📱 '+esc(r.phone):'')+'</span></div>'
+        + '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.15)">'
+        + '<div style="font-size:10px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:0.5px">Team Members</div>'
+        + r.teamMembers.map((m,idx)=>'<div style="font-size:11px;margin-top:2px;line-height:1.3"><strong>Member '+(idx+2)+':</strong> '+esc(m.name)+(m.registerNumber?' · <span class="muted">Reg: '+esc(m.registerNumber)+'</span>':'')+(m.department?' · <span class="muted">'+esc(m.department)+'</span>':'')+((m.academicYear||m.section)?' · <span class="muted">'+[m.academicYear?'Yr '+esc(m.academicYear):'',m.section?'Sec '+esc(m.section):''].filter(Boolean).join(' ')+'</span>':'')+'</div>').join('')
+        + '</div>'
+      : '<strong>'+esc(r.name)+'</strong><br><span class="muted">'+esc(r.email)+(r.phone?' · 📱 '+esc(r.phone):'')+'</span>';
+    const academicHtml=hasTeam
+      ? '<div><span class="muted" style="font-size:10.5px">Lead:</span> '+esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br><span class="muted">Reg: '+esc(r.registerNumber)+'</span></div>'
+      : esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br>'+esc(r.registerNumber);
+    return '<tr><td>'+participantHtml+'</td><td>'+esc(r.eventName)+'<br><span class="muted">'+esc(r.registrationId)+'</span></td><td>'+academicHtml+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td><div class="table-actions" style="display:flex;gap:6px;align-items:center"><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-att-row="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Verified':'Verify')+'</button><button class="mini danger" data-del-reg="'+esc(r.dbId)+'" data-del-name="'+esc(r.name)+'" data-del-code="'+esc(r.registrationId)+'" data-del-event="'+esc(r.eventName)+'" title="Delete registration">Delete</button></div></td></tr>';
+  }).join(''):'<tr><td colspan="5" class="muted">No registrations match the selected filters.</td></tr>';
 }
 /* ── delete confirmation modal & actions ── */
 let pendingDelete=null;
@@ -1376,7 +1403,11 @@ $('downloadMasterXlsx').onclick=async()=>{
   catch(ex){toast('Export failed',ex.message)}
 };
 $('exportRegs').onclick=async()=>{
-  try{const name=await downloadFile('/api/admin/export/master.xlsx','Spark26_Master_Registrations.xlsx');toast('Workbook ready',name+' saved to your downloads.')}
+  const filter=$('regEventFilter').value;
+  const url=(filter&&filter!=='ALL')
+    ? '/api/admin/events/'+encodeURIComponent(filter)+'/registrations.csv'
+    : '/api/admin/export/registrations.csv';
+  try{const name=await downloadFile(url,'Spark26_Registrations.csv');toast('CSV ready',name+' saved to your downloads.')}
   catch(ex){toast('Export failed',ex.message)}
 };
 /* ── event create / edit form ── */
