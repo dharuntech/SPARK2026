@@ -50,6 +50,7 @@ async function testFull() {
     document.getElementById('rYear').value = 'III';
     document.getElementById('rSection').value = 'A';
     document.getElementById('rEmail').value = 'lead_' + r.toLowerCase() + '@example.com';
+    if (document.getElementById('rPhone')) document.getElementById('rPhone').value = '9876543210';
   }, rand);
 
   // Fill in Member 2 and Member 3

@@ -261,6 +261,7 @@ async function listRegistrations({ eventId, search = '', attendance = 'ALL', pag
       { registrationId: { contains: search, mode: 'insensitive' } },
       { student: { is: { name: { contains: search, mode: 'insensitive' } } } },
       { student: { is: { email: { contains: search, mode: 'insensitive' } } } },
+      { student: { is: { phone: { contains: search, mode: 'insensitive' } } } },
       { student: { is: { registerNumber: { contains: search, mode: 'insensitive' } } } },
       { event: { is: { name: { contains: search, mode: 'insensitive' } } } },
     ];

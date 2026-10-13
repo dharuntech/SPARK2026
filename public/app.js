@@ -24,7 +24,7 @@ if(!res.ok||data.ok===false){const e=apiError(data,res.status);e.data=data;throw
 return data}
 function rememberPass(p){if(!p||!p.qr||!p.qr.token)return;const list=store.get(LS_TOKENS,[]).filter(t=>t!==p.qr.token);list.unshift(p.qr.token);store.set(LS_TOKENS,list.slice(0,20))}
 function trackPass(p){passes=[p,...passes.filter(x=>x.registrationId!==p.registrationId)];passIndex=0;rememberPass(p)}
-function prefillStudent(){const s=store.get(LS_STUDENT,null);if(!s)return;if(!$('rName').value)$('rName').value=s.name||'';if(!$('rRegno').value)$('rRegno').value=s.registerNumber||'';if(!$('rDept').value)$('rDept').value=s.department||'';if(!$('rYear').value&&s.academicYear&&['I','II','III','IV'].includes(s.academicYear))$('rYear').value=s.academicYear;if(!$('rSection').value)$('rSection').value=s.section||'';if(!$('rEmail').value)$('rEmail').value=s.email||''}
+function prefillStudent(){const s=store.get(LS_STUDENT,null);if(!s)return;if(!$('rName').value)$('rName').value=s.name||'';if(!$('rRegno').value)$('rRegno').value=s.registerNumber||'';if(!$('rDept').value)$('rDept').value=s.department||'';if(!$('rYear').value&&s.academicYear&&['I','II','III','IV'].includes(s.academicYear))$('rYear').value=s.academicYear;if(!$('rSection').value)$('rSection').value=s.section||'';if(!$('rEmail').value)$('rEmail').value=s.email||'';if($('rPhone')&&!$('rPhone').value)$('rPhone').value=s.phone||''}
 function downloadBlob(blob,filename){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 async function downloadFile(url,fallbackName){const res=await api(url,{download:true});const cd=res.headers.get('Content-Disposition')||'';const m=/filename="?([^";]+)"?/.exec(cd);const blob=await res.blob();const name=m?m[1]:fallbackName;downloadBlob(blob,name);return name}
 const sections=[0,1,2,3,4,5].map(i=>$('s'+i));
@@ -686,9 +686,12 @@ function renderTeamForm(){
     const memNum = idx + 2;
     const isRequired = memNum <= rules.min;
     return '<div class="card" data-member-idx="' + idx + '" style="background:rgba(255,255,255,.9);border:1px solid rgba(87,189,232,.3);border-radius:14px;padding:12px 14px;margin-top:4px">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">' +
         '<strong style="font-size:12px;color:var(--ink)">Member ' + memNum + ' ' + (isRequired ? '<span style="color:#d44969;font-size:10px;font-weight:700">(Required)</span>' : '<span style="color:#159873;font-size:10px;font-weight:600">(Optional)</span>') + '</strong>' +
-        '<button type="button" class="mini danger remove-member-btn" data-remove-idx="' + idx + '" style="padding:3px 10px;font-size:10px;border-radius:999px">Remove</button>' +
+        '<div style="display:flex;gap:6px;align-items:center">' +
+          '<button type="button" class="mini make-lead-btn" data-make-lead-idx="' + idx + '" style="padding:3px 10px;font-size:10px;border-radius:999px;background:rgba(91,178,240,.15);color:var(--ink);border:1px solid rgba(91,178,240,.4)" title="Set this member as Team Leader">Set as Team Leader</button>' +
+          '<button type="button" class="mini danger remove-member-btn" data-remove-idx="' + idx + '" style="padding:3px 10px;font-size:10px;border-radius:999px">Remove</button>' +
+        '</div>' +
       '</div>' +
       '<div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">' +
         '<div class="field"><label class="label">Full name</label><input class="m-name" required placeholder="Member name" value="' + esc(m.name || '') + '"></div>' +
@@ -727,6 +730,32 @@ if($('addMemberBtn')){
 
 if($('teamMembersList')){
   $('teamMembersList').addEventListener('click', e => {
+    const leadBtn = e.target.closest('[data-make-lead-idx]');
+    if(leadBtn){
+      saveTeamInputsToState();
+      const idx = +leadBtn.dataset.makeLeadIdx;
+      if(idx >= 0 && idx < currentTeamMembers.length){
+        const chosen = currentTeamMembers[idx];
+        const oldLead = {
+          name: $('rName').value.trim(),
+          registerNumber: $('rRegno').value.trim(),
+          department: $('rDept').value.trim(),
+          academicYear: $('rYear').value,
+          section: $('rSection').value.trim()
+        };
+        $('rName').value = chosen.name || '';
+        $('rRegno').value = chosen.registerNumber || '';
+        $('rDept').value = chosen.department || '';
+        if(chosen.academicYear) $('rYear').value = chosen.academicYear;
+        currentTeamMembers[idx] = oldLead;
+        if($('rPhone')) $('rPhone').value = '';
+        if($('rEmail')) $('rEmail').value = '';
+        renderTeamForm();
+        if($('rPhone')) $('rPhone').focus();
+        toast('Team Leader changed', 'Please enter ' + (chosen.name || 'the new leader') + "'s mobile number and email.");
+      }
+      return;
+    }
     const rm = e.target.closest('[data-remove-idx]');
     if(!rm) return;
     saveTeamInputsToState();
@@ -786,12 +815,40 @@ for(let idx = 0; idx < validMembers.length; idx++){
   }
 }
 
-const payload={eventId:ev.id,name:$('rName').value.trim(),registerNumber:$('rRegno').value.trim(),department:$('rDept').value.trim(),academicYear:yearVal,section:$('rSection').value.trim(),email:$('rEmail').value.trim(),teamMembers:validMembers};
+const emailVal = $('rEmail').value.trim();
+if(!emailVal){
+  err.textContent = "Please enter the team leader's email address.";
+  $('rEmail').focus();
+  return;
+}
+const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+if(!emailRe.test(emailVal)){
+  err.textContent = "Please enter a valid email address for the team leader.";
+  $('rEmail').focus();
+  return;
+}
+
+const phoneInput = $('rPhone');
+const phoneVal = phoneInput ? phoneInput.value.trim() : '';
+if(!phoneVal){
+  err.textContent = "Please enter the team leader's mobile number.";
+  if(phoneInput) phoneInput.focus();
+  return;
+}
+const cleanPhone = phoneVal.replace(/[\s\-\(\)]/g, '');
+const isValidPhone = /^(\+?91|0)?[6-9]\d{9}$/.test(cleanPhone) || /^\d{10,12}$/.test(cleanPhone);
+if(!isValidPhone){
+  err.textContent = "Please enter a valid 10-digit mobile number for the team leader.";
+  if(phoneInput) phoneInput.focus();
+  return;
+}
+
+const payload={eventId:ev.id,name:$('rName').value.trim(),registerNumber:$('rRegno').value.trim(),department:$('rDept').value.trim(),academicYear:yearVal,section:$('rSection').value.trim(),email:emailVal,phone:phoneVal,teamMembers:validMembers};
 btn.disabled=true;btn.textContent='Creating your pass…';
 try{
   const data=await api('/api/registrations',{method:'POST',body:payload});
   trackPass(data.pass);
-  store.set(LS_STUDENT,{name:payload.name,registerNumber:payload.registerNumber,department:payload.department,academicYear:payload.academicYear,section:payload.section,email:payload.email});
+  store.set(LS_STUDENT,{name:payload.name,registerNumber:payload.registerNumber,department:payload.department,academicYear:payload.academicYear,section:payload.section,email:payload.email,phone:payload.phone});
   form.reset();prefillStudent();currentTeamMembers=[];syncTeamForEvent(ev);
   await loadEvents();
   go(3);renderPass();
@@ -1160,14 +1217,14 @@ async function loadParticipants(){
     $('participantMeta').textContent=d.event.dateLabel+' · '+d.event.timeLabel+' · '+d.event.venue+' · '+d.event.modeLabel;
     $('participantCount').textContent=d.pagination.total+' registered · '+d.event.presentCount+' present';
     const rows=d.registrations;
-    box.innerHTML=rows.length?rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+esc(r.registrationId)+'</strong><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td>'+esc(r.name)+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'</td><td>'+esc(r.registerNumber)+'</td><td>'+esc(r.department)+'</td><td>'+esc(r.academicYear)+'</td><td>'+esc(r.section)+'</td><td>'+esc(r.email)+'</td><td>'+esc(r.createdAtLabel)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span>'+(r.checkedInAtLabel?'<br><span class="muted">'+esc(r.checkedInAtLabel)+'</span>':'')+'</td><td><div class="table-actions" style="display:flex;gap:6px;align-items:center"><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-toggle-att="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Mark pending':'Mark present')+'</button><button class="mini danger" data-del-reg="'+esc(r.dbId)+'" data-del-name="'+esc(r.name)+'" data-del-code="'+esc(r.registrationId)+'" data-del-event="'+esc(r.eventName)+'" title="Delete registration">Delete</button></div></td></tr>').join(''):'<tr><td colspan="12" class="muted">No students registered for this event yet.</td></tr>';
+    box.innerHTML=rows.length?rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+esc(r.registrationId)+'</strong><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td>'+esc(r.name)+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'</td><td>'+esc(r.registerNumber)+'</td><td>'+esc(r.department)+'</td><td>'+esc(r.academicYear)+'</td><td>'+esc(r.section)+'</td><td>'+esc(r.email)+(r.phone?'<br><span class="muted" style="font-size:10.5px">📱 '+esc(r.phone)+'</span>':'')+'</td><td>'+esc(r.createdAtLabel)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span>'+(r.checkedInAtLabel?'<br><span class="muted">'+esc(r.checkedInAtLabel)+'</span>':'')+'</td><td><div class="table-actions" style="display:flex;gap:6px;align-items:center"><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-toggle-att="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Mark pending':'Mark present')+'</button><button class="mini danger" data-del-reg="'+esc(r.dbId)+'" data-del-name="'+esc(r.name)+'" data-del-code="'+esc(r.registrationId)+'" data-del-event="'+esc(r.eventName)+'" title="Delete registration">Delete</button></div></td></tr>').join(''):'<tr><td colspan="12" class="muted">No students registered for this event yet.</td></tr>';
   }catch(ex){box.innerHTML='<tr><td colspan="12" class="muted">'+esc(ex.message)+'</td></tr>'}
 }
 /* ── global registration list ── */
 function renderRegsTable(){
   const q=$('regSearch').value.trim().toLowerCase(),filter=$('regEventFilter').value;
-  const list=adminRegRows.filter(r=>(filter==='ALL'||r.eventId===filter)&&(!q||[r.registrationId,r.name,r.email,r.registerNumber,r.eventName].join(' ').toLowerCase().includes(q)));
-  $('regsTable').innerHTML=list.length?list.map(r=>'<tr><td><strong>'+esc(r.name)+'</strong>'+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'<br><span class="muted">'+esc(r.email)+'</span></td><td>'+esc(r.eventName)+'<br><span class="muted">'+esc(r.registrationId)+'</span></td><td>'+esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br>'+esc(r.registerNumber)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td><div class="table-actions" style="display:flex;gap:6px;align-items:center"><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-att-row="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Verified':'Verify')+'</button><button class="mini danger" data-del-reg="'+esc(r.dbId)+'" data-del-name="'+esc(r.name)+'" data-del-code="'+esc(r.registrationId)+'" data-del-event="'+esc(r.eventName)+'" title="Delete registration">Delete</button></div></td></tr>').join(''):'<tr><td colspan="5" class="muted">No registrations match the selected filters.</td></tr>';
+  const list=adminRegRows.filter(r=>(filter==='ALL'||r.eventId===filter)&&(!q||[r.registrationId,r.name,r.email,r.phone||'',r.registerNumber,r.eventName].join(' ').toLowerCase().includes(q)));
+  $('regsTable').innerHTML=list.length?list.map(r=>'<tr><td><strong>'+esc(r.name)+'</strong>'+(r.teamMembers&&r.teamMembers.length?'<br><span class="muted" style="font-size:10px;color:var(--cyan)">Team: '+esc(r.teamMembers.map(m=>m.name).join(', '))+'</span>':'')+'<br><span class="muted">'+esc(r.email)+(r.phone?' · 📱 '+esc(r.phone):'')+'</span></td><td>'+esc(r.eventName)+'<br><span class="muted">'+esc(r.registrationId)+'</span></td><td>'+esc(r.department)+' · Year '+esc(r.academicYear)+' · '+esc(r.section)+'<br>'+esc(r.registerNumber)+'</td><td><span class="status'+(r.attendanceStatus==='PRESENT'?' ok':'')+'">'+esc(r.attendanceStatus)+'</span><br><span class="muted">'+esc(r.sourceLabel)+'</span></td><td><div class="table-actions" style="display:flex;gap:6px;align-items:center"><button class="mini '+(r.attendanceStatus==='PRESENT'?'':'success')+'" data-att-row="'+esc(r.dbId)+'" data-next="'+(r.attendanceStatus==='PRESENT'?'PENDING':'PRESENT')+'">'+(r.attendanceStatus==='PRESENT'?'Verified':'Verify')+'</button><button class="mini danger" data-del-reg="'+esc(r.dbId)+'" data-del-name="'+esc(r.name)+'" data-del-code="'+esc(r.registrationId)+'" data-del-event="'+esc(r.eventName)+'" title="Delete registration">Delete</button></div></td></tr>').join(''):'<tr><td colspan="5" class="muted">No registrations match the selected filters.</td></tr>';
 }
 /* ── delete confirmation modal & actions ── */
 let pendingDelete=null;
@@ -1418,7 +1475,8 @@ $('onspotForm').addEventListener('submit',async e=>{
   const f=e.currentTarget,msg=$('onspotMsg'),btn=$('onspotSubmit'),label=btn.textContent;
   msg.textContent='';btn.disabled=true;btn.textContent='Registering…';
   try{
-    const d=await api('/api/admin/registrations',{method:'POST',body:{eventId:$('onspotEventSelect').value,name:$('spotName').value.trim(),registerNumber:$('spotRegno').value.trim(),department:$('spotDept').value.trim(),academicYear:$('spotYear').value,section:$('spotSection').value.trim(),email:$('spotEmail').value.trim()}});
+    const spotPhoneVal=$('spotPhone')?$('spotPhone').value.trim():'';
+    const d=await api('/api/admin/registrations',{method:'POST',body:{eventId:$('onspotEventSelect').value,name:$('spotName').value.trim(),registerNumber:$('spotRegno').value.trim(),department:$('spotDept').value.trim(),academicYear:$('spotYear').value,section:$('spotSection').value.trim(),email:$('spotEmail').value.trim(),phone:spotPhoneVal||undefined}});
     msg.textContent='Pass created · '+d.pass.registrationId;
     toast('On-spot registration',d.pass.student.name+' → '+d.pass.event.name);
     showInfo('On-spot pass created',d.pass.registrationId+' · '+d.pass.sourceLabel,'<div class="success">'+esc(d.pass.student.name)+' ('+esc(d.pass.student.registerNumber)+') registered for '+esc(d.pass.event.name)+'.<br>Scan this QR at the desk or let the student keep it.</div><div class="qr-inline"><img alt="QR pass" src="'+d.pass.qr.svgDataUrl+'"></div>');
