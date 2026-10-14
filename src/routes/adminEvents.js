@@ -78,6 +78,13 @@ router.get(
       ];
     }
     const events = await prisma.event.findMany({ where, orderBy: [{ startsAt: 'desc' }, { code: 'desc' }] });
+    const { OFFICIAL_EVENT_CODES } = require('../config/officialEvents');
+    const canonicalOrder = (code) => {
+      const idx = OFFICIAL_EVENT_CODES.indexOf(code);
+      return idx === -1 ? 999 : idx;
+    };
+    events.sort((a, b) => canonicalOrder(a.code) - canonicalOrder(b.code));
+
     const counts = await countsForEvents(events.map((e) => e.id));
     const now = new Date();
     const [stats, summaries] = await Promise.all([eventsService.dashboardStats(), eventsService.listPublicEvents({})]);
@@ -137,6 +144,8 @@ router.post(
         createdByAdminId: req.admin.id,
       },
     });
+
+    eventsService.clearEventsCache();
 
     await audit({
       adminId: req.admin.id,
@@ -200,6 +209,7 @@ router.patch(
       ip: req.ip,
     });
 
+    eventsService.clearEventsCache();
     res.json({ ok: true, event: eventsService.shapeEvent(event), message: 'Event updated.' });
   })
 );
@@ -280,6 +290,7 @@ router.post(
       metadata: { status },
       ip: req.ip,
     });
+    eventsService.clearEventsCache();
     res.json({ ok: true, event: eventsService.shapeEvent(event), message: `Event is now ${status.toLowerCase()}.` });
   })
 );
@@ -292,25 +303,31 @@ router.post(
   asyncHandler(async (req, res) => {
     const event = await prisma.event.update({ where: { id: req.params.id }, data: { status: 'CANCELLED' } });
     await audit({ adminId: req.admin.id, action: 'event.archived', entityType: 'Event', entityId: event.id, ip: req.ip });
+    eventsService.clearEventsCache();
     res.json({ ok: true, event: eventsService.shapeEvent(event), message: 'Event archived. Registration history is preserved.' });
   })
 );
 
-/** DELETE /api/admin/events/:id — only possible when no registration history exists. */
+/** DELETE /api/admin/events/:id — official permanent events cannot be deleted. */
 router.delete(
   '/events/:id',
   csrfProtection,
   requireRole('SUPERADMIN', 'ADMIN'),
   asyncHandler(async (req, res) => {
+    const event = await prisma.event.findUnique({ where: { id: req.params.id } });
+    if (!event) throw ApiError.notFound('Event not found.');
+    const { OFFICIAL_EVENT_CODES } = require('../config/officialEvents');
+    if (OFFICIAL_EVENT_CODES.includes(event.code)) {
+      throw ApiError.badRequest('Permanent official events cannot be deleted.');
+    }
     const registrations = await prisma.registration.count({ where: { eventId: req.params.id } });
     if (registrations > 0) {
       throw ApiError.conflict('EVENT_HAS_REGISTRATIONS', 'This event has registrations. Unpublish or archive it instead so attendance history is preserved.');
     }
-    const event = await prisma.event.findUnique({ where: { id: req.params.id } });
-    if (!event) throw ApiError.notFound('Event not found.');
     await prisma.event.delete({ where: { id: event.id } });
     if (event.imageUrl) await removeUpload(event.imageUrl);
     if (event.brochureUrl) await removeUpload(event.brochureUrl);
+    eventsService.clearEventsCache();
     await audit({ adminId: req.admin.id, action: 'event.deleted', entityType: 'Event', entityId: event.id, metadata: { name: event.name }, ip: req.ip });
     res.json({ ok: true, message: 'Event deleted.' });
   })

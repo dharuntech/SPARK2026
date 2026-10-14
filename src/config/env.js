@@ -36,3 +36,6 @@ const env = {
 if (!env.databaseUrl && !process.env.VERCEL) throw new Error('DATABASE_URL is not configured');
 
 module.exports = env;
+if (!env.databaseUrl && !process.env.VERCEL) throw new Error('DATABASE_URL is not configured');
+
+module.exports = env;

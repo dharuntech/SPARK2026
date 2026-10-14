@@ -11,25 +11,9 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
+const { OFFICIAL_EVENTS, OFFICIAL_EVENT_CODES } = require('../src/config/officialEvents');
 
 const prisma = new PrismaClient();
-const IST_OFFSET_MINUTES = 330;
-const EVENT_DATE = process.env.SEED_EVENT_DATE || '2026-10-18';
-
-function ist(dateStr, timeStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const [hh, mm] = timeStr.split(':').map(Number);
-  return new Date(Date.UTC(y, m - 1, d, hh, mm) - IST_OFFSET_MINUTES * 60 * 1000);
-}
-
-const DEFAULT_EVENTS = [
-  { code: 'E04', name: 'IPL AUCTION', category: 'NON_TECHNICAL', venue: '322', start: '10:00', end: '13:00', mode: 'BOTH', desc: '🏏 IPL AUCTION – SPARK 2026\n\nBuild your dream IPL team! 🔥 Bid for your favourite players, manage your budget, and compete with other teams to create the ultimate cricket squad. Let the bidding battle begin! 💰🏆' },
-  { code: 'E03', name: 'Capture The Flag', category: 'TECHNICAL', venue: 'SHIVA AYUADURAI LAB', start: '10:00', end: '12:00', mode: 'WEBSITE', desc: 'Capture The Flag (CTF) is a technical challenge where participants must use their problem-solving and cybersecurity skills to find a hidden flag placed in a folder somewhere on a computer. The participant who discovers the flag first and submits it correctly wins the challenge.' },
-  { code: 'E05', name: 'Creovate', category: 'TECHNICAL', venue: 'DENNIS RICHIE LAB(Right)', start: '10:00', end: '12:00', mode: 'WEBSITE', desc: 'Creovate: Technical innovation, design thinking, and rapid prototyping competition.' },
-  { code: 'E06', name: 'AuRagen', category: 'TECHNICAL', venue: 'DENNIS RICHIE LAB(Left)', start: '10:00', end: '12:00', mode: 'WEBSITE', desc: 'AuRagen: Advanced generative AI, machine learning and intelligent system building.' },
-  { code: 'E07', name: 'Project expo', category: 'TECHNICAL', venue: 'IOT LAB', start: '10:00', end: '13:00', mode: 'WEBSITE', desc: 'Project Expo: Showcase your groundbreaking hardware, IoT, and software projects to expert panels.' },
-  { code: 'E02', name: 'NeuraForge', category: 'TECHNICAL', venue: 'IBM LAB', start: '11:30', end: '13:00', mode: 'WEBSITE', desc: 'NeuraForge: Neural network architectures, deep learning engineering, and algorithmic mastery.' },
-];
 
 const slugify = (v) => String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
@@ -63,27 +47,54 @@ async function seedAdmin() {
 
 async function seedEvents() {
   let created = 0;
-  for (const e of DEFAULT_EVENTS) {
-    const existing = await prisma.event.findUnique({ where: { code: e.code } });
-    if (existing) continue;
-    await prisma.event.create({
-      data: {
-        code: e.code,
-        slug: slugify(e.name),
-        name: e.name,
-        category: e.category,
-        venue: e.venue,
-        startsAt: ist(EVENT_DATE, e.start),
-        endsAt: ist(EVENT_DATE, e.end),
-        description: e.desc,
-        registrationMode: e.mode,
-        registrationDeadline: ist(EVENT_DATE, '09:00'),
-        status: 'PUBLISHED',
-      },
+  let updated = 0;
+  for (const e of OFFICIAL_EVENTS) {
+    const existing = await prisma.event.findFirst({
+      where: { OR: [{ code: e.code }, { id: e.id }] },
     });
-    created += 1;
+    const data = {
+      code: e.code,
+      slug: e.slug,
+      name: e.name,
+      category: e.category,
+      venue: e.venue,
+      startsAt: new Date(e.startsAt),
+      endsAt: new Date(e.endsAt),
+      description: e.description,
+      registrationMode: e.registrationMode,
+      registrationDeadline: e.registrationDeadline ? new Date(e.registrationDeadline) : null,
+      imageUrl: e.imageUrl || null,
+      brochureUrl: e.brochureUrl || null,
+      brochureName: e.brochureName || null,
+      status: 'PUBLISHED',
+    };
+    if (existing) {
+      await prisma.event.update({
+        where: { id: existing.id },
+        data,
+      });
+      updated += 1;
+    } else {
+      await prisma.event.create({
+        data: {
+          id: e.id,
+          ...data,
+        },
+      });
+      created += 1;
+    }
   }
-  console.log(`✔ Events: ${created} created, ${DEFAULT_EVENTS.length - created} already existed (event date ${EVENT_DATE} IST)`);
+
+  // Ensure any non-official events are set to DRAFT so only the 6 official events are published
+  await prisma.event.updateMany({
+    where: {
+      code: { notIn: OFFICIAL_EVENT_CODES },
+      status: 'PUBLISHED',
+    },
+    data: { status: 'DRAFT' },
+  });
+
+  console.log(`✔ Events: ${created} created, ${updated} updated (guaranteed 6 permanent official events)`);
 }
 
 async function main() {

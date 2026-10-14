@@ -664,16 +664,20 @@ async function loadEvents(){
     const d=await api('/api/events');
     const list=d.events||[];
     list.forEach(e=>{e.modeLabel=formatModeLabel(e.registrationMode,e.modeLabel);});
-    const iplIdx=list.findIndex(e=>(e.name||'').toLowerCase().includes('ipl')||e.code==='E04');
-    if(iplIdx>0){
-      const [ipl]=list.splice(iplIdx,1);
-      list.unshift(ipl);
-    }
+    const OFFICIAL_ORDER=['E04','E03','E05','E06','E07','E02'];
+    list.sort((a,b)=>{
+      const ia=OFFICIAL_ORDER.indexOf(a.code);
+      const ib=OFFICIAL_ORDER.indexOf(b.code);
+      return (ia===-1?999:ia)-(ib===-1?999:ib);
+    });
     events=list;
     loadState='ready';
   }catch(err){
-    loadState='error';
-    events=[];
+    if(events&&events.length>=6){
+      loadState='ready';
+    }else{
+      loadState='error';
+    }
     toast('Events unavailable',err.message);
   }
   renderEvents();
@@ -1430,8 +1434,18 @@ async function refreshPassesFromServer(){try{await loadPasses();renderPass()}cat
 function renderAdminStats(){const s=server.stats||{};$('aPublished').textContent=s.published??0;$('aRegs').textContent=s.registrations??0;$('aAttendance').textContent=s.attendance??0;$('aDrafts').textContent=s.drafts??0;if($('countRegs'))$('countRegs').textContent=String(events.reduce((a,e)=>a+(e.registeredCount||0),0)).padStart(2,'0')}
 function renderAdminEventsTable(){
   const q=$('adminSearch').value.trim().toLowerCase(),status=$('statusFilter').value,cat=$('categoryFilter').value;
+  const OFFICIAL_ORDER=['E04','E03','E05','E06','E07','E02'];
   const list=adminEvents.filter(e=>(status==='ALL'||e.status===status)&&(cat==='ALL'||e.categoryLabel===cat)&&(!q||[e.code,e.name,e.venue,e.categoryLabel].join(' ').toLowerCase().includes(q)));
-  $('adminEventsTable').innerHTML=list.length?list.map(e=>'<tr><td><strong>'+esc(e.name)+'</strong><br><span class="muted">'+esc(e.code)+' · '+esc(e.categoryLabel)+' · '+esc(e.venue)+'<br>'+esc(e.dateLabel)+' · '+esc(e.timeLabel)+'</span></td><td><span class="status">'+esc(e.statusLabel)+'</span><br><span class="muted">'+esc(e.modeLabel)+'</span></td><td>'+e.registeredCount+'<br><span class="muted">'+e.presentCount+' present</span></td><td><div class="table-actions"><button class="mini" data-edit="'+esc(e.id)+'">Edit</button>'+(e.status==='PUBLISHED'?'<button class="mini" data-draft="'+esc(e.id)+'">Unpublish</button>':'<button class="mini success" data-publish="'+esc(e.id)+'">Publish</button>')+'<button class="mini" data-participants="'+esc(e.id)+'">Participants</button>'+(e.registeredCount?'<button class="mini danger" data-archive="'+esc(e.id)+'">Archive</button>':'<button class="mini danger" data-delete="'+esc(e.id)+'">Delete</button>')+'</div></td></tr>').join(''):'<tr><td colspan="4" class="muted">No events match the selected filters.</td></tr>';
+  list.sort((a,b)=>{
+    const ia=OFFICIAL_ORDER.indexOf(a.code);
+    const ib=OFFICIAL_ORDER.indexOf(b.code);
+    return (ia===-1?999:ia)-(ib===-1?999:ib);
+  });
+  $('adminEventsTable').innerHTML=list.length?list.map(e=>{
+    const isOfficial=OFFICIAL_ORDER.includes(e.code);
+    const delBtn=isOfficial?'':(e.registeredCount?'<button class="mini danger" data-archive="'+esc(e.id)+'">Archive</button>':'<button class="mini danger" data-delete="'+esc(e.id)+'">Delete</button>');
+    return '<tr><td><strong>'+esc(e.name)+'</strong><br><span class="muted">'+esc(e.code)+' · '+esc(e.categoryLabel)+' · '+esc(e.venue)+'<br>'+esc(e.dateLabel)+' · '+esc(e.timeLabel)+'</span></td><td><span class="status">'+esc(e.statusLabel)+'</span><br><span class="muted">'+esc(e.modeLabel)+'</span></td><td>'+e.registeredCount+'<br><span class="muted">'+e.presentCount+' present</span></td><td><div class="table-actions"><button class="mini" data-edit="'+esc(e.id)+'">Edit</button>'+(e.status==='PUBLISHED'?'<button class="mini" data-draft="'+esc(e.id)+'">Unpublish</button>':'<button class="mini success" data-publish="'+esc(e.id)+'">Publish</button>')+'<button class="mini" data-participants="'+esc(e.id)+'">Participants</button>'+delBtn+'</div></td></tr>';
+  }).join(''):'<tr><td colspan="4" class="muted">No events match the selected filters.</td></tr>';
 }
 function renderEventSelectors(){
   const allOpts=adminEvents.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.code+' · '+e.name)+' ('+e.registeredCount+')</option>').join('');
@@ -1586,13 +1600,13 @@ $('exportRegs').onclick=async()=>{
 };
 /* ── event create / edit form ── */
 const EVENT_FIELD_MAP={eName:'name',eCategory:'category',eVenue:'venue',eDate:'eventDate',eStart:'startTime',eEnd:'endTime',eMode:'registrationMode',eDesc:'description',eDeadline:'registrationDeadline',eCapacity:'maxCapacity',eStatus:'status'};
-function showAdminEventForm(mode='create',ev=null){
+function showAdminEventForm(mode='edit',ev=null){
+  if(!ev)return;
   const mainView=$('adminMainView'),formView=$('adminEventCreateView');
   if(mainView)mainView.classList.add('hidden');
   if(formView)formView.classList.remove('hidden');
   $('adminPortal').scrollTo({top:0,behavior:'smooth'});
-  if(mode==='edit'&&ev)fillEventForm(ev);
-  else{resetEventForm();const f=$('eName');f&&f.focus()}
+  fillEventForm(ev);
 }
 function showAdminMainView(){
   const formView=$('adminEventCreateView'),mainView=$('adminMainView');
@@ -1602,8 +1616,8 @@ function showAdminMainView(){
 }
 function resetEventForm(){
   $('eventForm').reset();$('editEventId').value='';
-  if($('eventPageHeading'))$('eventPageHeading').textContent='Create an Event';
-  $('eventFormTitle').textContent='Create an Event';
+  if($('eventPageHeading'))$('eventPageHeading').textContent='Edit Event';
+  $('eventFormTitle').textContent='Edit Event';
   $('eventSubmit').textContent='Save Event';
   $('cancelEdit').classList.remove('hidden');
   $('brochurePreview').classList.add('hidden');$('brochurePreview').src='';
@@ -1624,7 +1638,7 @@ function fillEventForm(ev){
   if($('eImageFilename'))$('eImageFilename').textContent=ev.imageUrl?'Current image uploaded':'';
   if($('eBrochureFilename'))$('eBrochureFilename').textContent=ev.brochureName||(ev.brochureUrl?'Current brochure uploaded':'');
 }
-$('newEventBtn').onclick=()=>showAdminEventForm('create');
+if($('newEventBtn'))$('newEventBtn').style.display='none';
 $('cancelEdit').onclick=()=>showAdminMainView();
 if($('backToEventsBtn'))$('backToEventsBtn').onclick=()=>showAdminMainView();
 $('eImage').addEventListener('change',e=>{
@@ -1711,8 +1725,13 @@ $('eventForm').addEventListener('submit',async e=>{
   if(image)fd.append('image',image);
   const brochure=$('eBrochure').files[0];if(brochure)fd.append('brochure',brochure);
   try{
-    const d=await api(id?('/api/admin/events/'+encodeURIComponent(id)):'/api/admin/events',{method:id?'PATCH':'POST',form:fd});
-    toast(id?'Event updated':'Event saved',d.event.name+' · '+d.event.statusLabel);
+    if(!id){
+      err.textContent='Adding new events has been removed. The six official events are permanent.';
+      btn.disabled=false;btn.textContent=label;isSavingEvent=false;
+      return;
+    }
+    const d=await api('/api/admin/events/'+encodeURIComponent(id),{method:'PATCH',form:fd});
+    toast('Event updated',d.event.name+' · '+d.event.statusLabel);
     resetEventForm();showAdminMainView();await refreshAdmin();await loadEvents();
   }catch(ex){
     err.textContent=ex.message+(ex.details?(' '+Object.values(ex.details).join(' · ')):'');
@@ -1740,6 +1759,11 @@ $('adminEventsTable').addEventListener('click',async e=>{
     return;
   }
   if(b.dataset.delete){
+    const OFFICIAL_CODES=['E04','E03','E05','E06','E07','E02'];
+    if(OFFICIAL_CODES.includes(ev.code)){
+      toast('Action prohibited','Permanent official events cannot be deleted.');
+      return;
+    }
     if(confirm('Delete '+ev.name+'? This cannot be undone.')){
       b.disabled=true;
       try{await api('/api/admin/events/'+encodeURIComponent(id),{method:'DELETE'});toast('Event deleted',ev.name+' was removed.');await refreshAdmin();await loadEvents()}

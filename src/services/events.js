@@ -93,8 +93,69 @@ async function countsForEvents(eventIds) {
   return map;
 }
 
-/** Public listing: only PUBLISHED events are ever exposed. */
+const { OFFICIAL_EVENTS, OFFICIAL_EVENT_CODES } = require('../config/officialEvents');
+
+let cachedPublicEvents = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 10000; // 10 seconds
+
+function clearEventsCache() {
+  cachedPublicEvents = null;
+  cacheTimestamp = 0;
+}
+
+const canonicalOrderIndex = (code) => {
+  const idx = OFFICIAL_EVENT_CODES.indexOf(code);
+  return idx === -1 ? 999 : idx;
+};
+
+/** Ensure the 6 official events are present in the persistent database. */
+async function ensureOfficialEvents() {
+  try {
+    const existing = await prisma.event.findMany({
+      where: { code: { in: OFFICIAL_EVENT_CODES } },
+      select: { code: true, id: true },
+    });
+    const existingCodes = new Set(existing.map((e) => e.code));
+    const missing = OFFICIAL_EVENTS.filter((e) => !existingCodes.has(e.code));
+    if (missing.length > 0) {
+      for (const e of missing) {
+        await prisma.event.create({
+          data: {
+            id: e.id,
+            code: e.code,
+            slug: e.slug,
+            name: e.name,
+            category: e.category,
+            venue: e.venue,
+            startsAt: new Date(e.startsAt),
+            endsAt: new Date(e.endsAt),
+            description: e.description,
+            registrationMode: e.registrationMode,
+            registrationDeadline: e.registrationDeadline ? new Date(e.registrationDeadline) : null,
+            imageUrl: e.imageUrl || null,
+            brochureUrl: e.brochureUrl || null,
+            brochureName: e.brochureName || null,
+            status: 'PUBLISHED',
+          },
+        });
+      }
+      clearEventsCache();
+    }
+  } catch (err) {
+    console.warn('ensureOfficialEvents non-fatal warning:', err.message);
+  }
+}
+
+/** Public listing: only PUBLISHED events are ever exposed, ordered canonically. */
 async function listPublicEvents({ search = '', category = 'ALL', limit = 100 } = {}) {
+  const isDefaultQuery = !search && (category === 'ALL' || !category);
+  const now = new Date();
+
+  if (isDefaultQuery && cachedPublicEvents && (Date.now() - cacheTimestamp < CACHE_TTL_MS)) {
+    return cachedPublicEvents;
+  }
+
   const where = { status: 'PUBLISHED' };
   if (category && category !== 'ALL') {
     where.category = category === 'NON-TECHNICAL' ? 'NON_TECHNICAL' : category;
@@ -107,13 +168,37 @@ async function listPublicEvents({ search = '', category = 'ALL', limit = 100 } =
       { code: { contains: search, mode: 'insensitive' } },
     ];
   }
-  const events = await prisma.event.findMany({ where, orderBy: [{ startsAt: 'asc' }, { code: 'asc' }], take: limit });
-  const counts = await countsForEvents(events.map((e) => e.id));
-  const now = new Date();
-  return events.map((e) => {
-    const c = counts.get(e.id) || { registeredCount: 0, presentCount: 0 };
-    return shapeEvent(e, { ...c, now });
-  });
+
+  try {
+    const events = await prisma.event.findMany({ where, take: limit });
+    // Sort strictly by the official 6 event canonical order:
+    // 1. E04 (IPL AUCTION)
+    // 2. E03 (Capture The Flag)
+    // 3. E05 (Creovate)
+    // 4. E06 (AuRagen)
+    // 5. E07 (Project expo)
+    // 6. E02 (NeuraForge)
+    events.sort((a, b) => canonicalOrderIndex(a.code) - canonicalOrderIndex(b.code));
+
+    const counts = await countsForEvents(events.map((e) => e.id));
+    const shaped = events.map((e) => {
+      const c = counts.get(e.id) || { registeredCount: 0, presentCount: 0 };
+      return shapeEvent(e, { ...c, now });
+    });
+
+    if (isDefaultQuery && shaped.length >= 6) {
+      cachedPublicEvents = shaped;
+      cacheTimestamp = Date.now();
+    }
+    return shaped;
+  } catch (err) {
+    // If database is temporarily unavailable, serve last known good cache if present
+    if (cachedPublicEvents && cachedPublicEvents.length > 0) {
+      console.warn('Database query failed, serving cached events:', err.message);
+      return cachedPublicEvents;
+    }
+    throw err;
+  }
 }
 
 async function getEventByIdOrCode(idOrCode, { includeUnpublished = false } = {}) {
@@ -189,4 +274,8 @@ module.exports = {
   uniqueSlug,
   dashboardStats,
   closedMessages,
+  clearEventsCache,
+  ensureOfficialEvents,
+  OFFICIAL_EVENT_CODES,
+  OFFICIAL_EVENTS,
 };

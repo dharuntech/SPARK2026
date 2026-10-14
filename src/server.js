@@ -6,6 +6,10 @@ const prisma = require('./lib/prisma');
 
 async function main() {
   ensureUploadDirs();
+  const eventsService = require('./services/events');
+  await eventsService.ensureOfficialEvents().catch((err) => {
+    console.warn('Initial ensureOfficialEvents non-fatal:', err.message);
+  });
   const app = createApp();
 
   const server = app.listen(env.port, '0.0.0.0', () => {

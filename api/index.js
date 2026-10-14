@@ -8,7 +8,9 @@ const { ensureUploadDirs } = require('../src/middleware/upload');
 
 try {
   ensureUploadDirs();
-} catch (_) {}
+  const { ensureOfficialEvents } = require('../src/services/events');
+  ensureOfficialEvents().catch(() => { });
+} catch (_) { }
 
 const app = createApp();
 
