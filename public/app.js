@@ -28,6 +28,23 @@ function prefillStudent(){const s=store.get(LS_STUDENT,null);if(!s)return;if(!$(
 function downloadBlob(blob,filename){if(typeof window!=='undefined'&&window.__onDownloadBlob)try{window.__onDownloadBlob(blob,filename)}catch(_){}const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 async function downloadFile(url,fallbackName){const res=await api(url,{download:true});const cd=res.headers.get('Content-Disposition')||'';const m=/filename="?([^";]+)"?/.exec(cd);const blob=await res.blob();const name=m?m[1]:fallbackName;downloadBlob(blob,name);return name}
 const sections=[0,1,2,3,4,5].map(i=>$('s'+i));
+const PUBLIC_SECTIONS=[0,1,3,4,5];
+function getNextSection(cur){
+  if(cur===0)return 1;
+  if(cur===1)return 3;
+  if(cur===2)return 3;
+  if(cur===3)return 4;
+  if(cur===4)return 5;
+  return 5;
+}
+function getPrevSection(cur){
+  if(cur===5)return 4;
+  if(cur===4)return 3;
+  if(cur===3)return 1;
+  if(cur===2)return 1;
+  if(cur===1)return 0;
+  return 0;
+}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}function save(){/* PostgreSQL is authoritative — nothing is mirrored in this browser */}function toast(title,msg){const t=$('toast');t.innerHTML='<strong>'+esc(title)+'</strong>'+esc(msg);t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),3600)}
 function go(i, push = true){
 i=Math.max(0,Math.min(5,i));
@@ -64,7 +81,13 @@ if(isMobile){
 }
 if(i===0){window.__resumePrism&&window.__resumePrism();window.__wakeOrbs&&window.__wakeOrbs()}
 }
-document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));$('brand')?.addEventListener('click',()=>{if(currentSection===0){window.location.reload()}else{go(0)}});document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){if(currentSection===0)window.location.reload();else go(0)}});$('heroEvents')?.addEventListener('click',()=>go(1));const nr=$('navReg');if(nr)nr.onclick=()=>{if(selectedId&&eventById(selectedId)){updateSelected();go(2)}else if(events&&events.length){selectEvent(events[0]);go(2)}else{go(2)}};window.sparkGo=go;window.sparkSelectEvent=selectEvent;window.sparkEvents=()=>events;window.sparkPasses=()=>passes;
+document.querySelectorAll('[data-section]').forEach(x=>x.addEventListener('click',()=>go(+x.dataset.section)));
+$('brand')?.addEventListener('click',()=>{if(currentSection===0){window.location.reload()}else{go(0)}});
+document.querySelector('.brand').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){if(currentSection===0)window.location.reload();else go(0)}});
+$('heroEvents')?.addEventListener('click',()=>go(1));
+$('backToEventsBtn')?.addEventListener('click',()=>go(1));
+const nr=$('navReg');if(nr)nr.onclick=()=>{if(selectedId&&eventById(selectedId)){updateSelected();go(2)}else{go(1)}};
+window.sparkGo=go;window.sparkSelectEvent=selectEvent;window.sparkEvents=()=>events;window.sparkPasses=()=>passes;
 (function(){
 const blocked = t => {
   if (!t) return false;
@@ -85,7 +108,7 @@ function getPullIndicator(){
   return pullIndicator;
 }
 
-// 1. TOUCH GESTURES (Horizontal section navigation + Mobile pull-down to refresh)
+// 1. TOUCH GESTURES (Horizontal & Vertical section navigation + Mobile pull-down to refresh)
 let touchStartX=0,touchStartY=0,touchStartTime=0,touchTracking=false,touchAtTop=false;
 window.addEventListener('touchstart',e=>{
   if(e.touches.length!==1){touchTracking=false;return}
@@ -146,9 +169,21 @@ window.addEventListener('touchend',e=>{
     pullIndicator.style.transform='';
   }
 
-  // Execute horizontal section transition
+  // 1. Horizontal section transition
   if(dt<800&&Math.abs(dx)>=40&&Math.abs(dx)>Math.abs(dy)*1.2){
-    go(currentSection+(dx<0?1:-1));
+    if(dx<0) go(getNextSection(currentSection));
+    else go(getPrevSection(currentSection));
+    return;
+  }
+
+  // 2. Vertical section transition when boundary reached
+  if(dt<800&&Math.abs(dy)>=50&&Math.abs(dy)>Math.abs(dx)*1.2){
+    const isDown = dy < 0; // swiping up moves down to next section
+    const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const atTop = window.scrollY <= 10;
+    const atBottom = maxScroll <= 10 || (window.scrollY >= maxScroll - 20);
+    if(isDown && atBottom) go(getNextSection(currentSection));
+    else if(!isDown && atTop) go(getPrevSection(currentSection));
   }
 },{passive:true});
 
@@ -174,27 +209,56 @@ document.addEventListener('pointerup',e=>{
   const dx=e.clientX-ptrStartX,dy=e.clientY-ptrStartY;
   const dt=performance.now()-ptrStartTime;
   if(dt<800&&Math.abs(dx)>=50&&Math.abs(dx)>Math.abs(dy)*1.4){
-    if(!String(window.getSelection()||'').length)go(currentSection+(dx<0?1:-1));
+    if(!String(window.getSelection()||'').length){
+      if(dx<0) go(getNextSection(currentSection));
+      else go(getPrevSection(currentSection));
+    }
   }
 });
 
-// 3. TRACKPAD TWO-FINGER HORIZONTAL SWIPE (PC and laptops)
-let wheelLock=false,wheelAccX=0,wheelResetTimer=null;
+// 3. WHEEL & TRACKPAD NAVIGATION (Vertical mouse wheel + horizontal trackpad swipe)
+let wheelLock=false,wheelAccX=0,wheelAccY=0,wheelResetTimer=null;
 window.addEventListener('wheel',e=>{
   if(blocked(e.target))return;
+
+  // 3A. Horizontal trackpad swipe
   if(Math.abs(e.deltaX)>Math.abs(e.deltaY)*1.15&&Math.abs(e.deltaX)>6){
-    // Stop the PC browser from executing native "Swipe to go back/forward in history" which exits the website
     if(e.cancelable)e.preventDefault();
     if(wheelLock)return;
     wheelAccX+=e.deltaX;
     clearTimeout(wheelResetTimer);
-    wheelResetTimer=setTimeout(()=>{wheelAccX=0},280);
+    wheelResetTimer=setTimeout(()=>{wheelAccX=0;wheelAccY=0;},280);
     if(Math.abs(wheelAccX)>=40){
       wheelLock=true;
       const dir=wheelAccX>0?1:-1;
       wheelAccX=0;
-      go(currentSection+dir);
+      if(dir>0) go(getNextSection(currentSection));
+      else go(getPrevSection(currentSection));
       setTimeout(()=>{wheelLock=false},600);
+    }
+    return;
+  }
+
+  // 3B. Vertical mouse wheel or trackpad scroll
+  if(Math.abs(e.deltaY)>Math.abs(e.deltaX)*1.15&&Math.abs(e.deltaY)>6){
+    const isDown=e.deltaY>0;
+    const maxScroll=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
+    const atTop=window.scrollY<=10;
+    const atBottom=maxScroll<=10||(window.scrollY>=maxScroll-16);
+
+    if((isDown&&atBottom)||(!isDown&&atTop)){
+      if(e.cancelable)e.preventDefault();
+      if(wheelLock)return;
+      wheelAccY+=e.deltaY;
+      clearTimeout(wheelResetTimer);
+      wheelResetTimer=setTimeout(()=>{wheelAccX=0;wheelAccY=0;},280);
+      if(Math.abs(wheelAccY)>=40){
+        wheelLock=true;
+        wheelAccY=0;
+        if(isDown) go(getNextSection(currentSection));
+        else go(getPrevSection(currentSection));
+        setTimeout(()=>{wheelLock=false},600);
+      }
     }
   }
 },{passive:false});
@@ -203,8 +267,11 @@ window.addEventListener('wheel',e=>{
 document.addEventListener('keydown',e=>{
   if(e.target.closest&&e.target.closest('input,select,textarea'))return;
   if(document.querySelector('.overlay.show,.admin.show'))return;
-  if(e.key==='ArrowRight')go(currentSection+1);
-  else if(e.key==='ArrowLeft')go(currentSection-1);
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key==='PageDown'){
+    go(getNextSection(currentSection));
+  }else if(e.key==='ArrowLeft'||e.key==='ArrowUp'||e.key==='PageUp'){
+    go(getPrevSection(currentSection));
+  }
 });
 
 // 5. BROWSER HISTORY INTEGRATION (Back button navigates previous section without leaving site)
@@ -611,7 +678,13 @@ async function loadEvents(){
   }
   renderEvents();
   if(selectedId&&!eventById(selectedId))selectedId='';
-  if(!selectedId&&events.length)selectedId=events[0].id;
+  if(!selectedId){
+    try{
+      const params=new URLSearchParams(window.location.search);
+      const code=params.get('event');
+      if(code&&eventById(code))selectedId=eventById(code).id;
+    }catch(_){}
+  }
   updateSelected();
 }
 document.querySelectorAll('.filter[data-filter]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.filter[data-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');activeFilter=b.dataset.filter;renderEvents()}));
@@ -813,15 +886,27 @@ if($('teamMembersList')){
   });
 }
 
-function updateSelected(){const e=eventById(selectedId)||events[0]||null;
-if(!e){$('selectedTitle').textContent='Choose an event';$('selectedMeta').textContent='No published events are available right now.';return}
-selectedId=e.id;$('selectedTitle').textContent=e.name;
-$('selectedMeta').textContent=e.categoryLabel+' · '+e.venue+' · '+e.dateLabel+' · '+e.timeLabel+' · '+formatModeLabel(e.registrationMode, e.modeLabel);
-$('regSubmit').disabled=!e.registrationOpen;
-$('regSubmit').textContent=e.registrationOpen?'Generate my pass':'Registration closed';
-$('regError').textContent=e.registrationOpen?'':(e.closedMessage||'');
-prefillStudent();
-syncTeamForEvent(e);}
+function updateSelected(){
+  const e=eventById(selectedId);
+  if(!e){
+    $('selectedTitle').textContent='Choose an event';
+    $('selectedMeta').textContent='Please select an event from the Events catalog to register.';
+    $('regSubmit').disabled=true;
+    $('regSubmit').textContent='Choose an event to register';
+    $('regError').textContent='';
+    if($('teamContainer'))$('teamContainer').style.display='none';
+    return;
+  }
+  if($('teamContainer'))$('teamContainer').style.display='';
+  selectedId=e.id;
+  $('selectedTitle').textContent=e.name;
+  $('selectedMeta').textContent=e.categoryLabel+' · '+e.venue+' · '+e.dateLabel+' · '+e.timeLabel+' · '+formatModeLabel(e.registrationMode, e.modeLabel);
+  $('regSubmit').disabled=!e.registrationOpen;
+  $('regSubmit').textContent=e.registrationOpen?'Generate my pass':'Registration closed';
+  $('regError').textContent=e.registrationOpen?'':(e.closedMessage||'');
+  prefillStudent();
+  syncTeamForEvent(e);
+}
 
 $('regForm').addEventListener('submit',async e=>{
 e.preventDefault();

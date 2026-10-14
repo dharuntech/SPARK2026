@@ -616,7 +616,7 @@ async function registerForFirstOpenEvent(page, student) {
   await check('section navigation, animations and layout still work', async () => {
     await page.click('#adminHome');
     await page.evaluate(() => window.scrollTo(0, 0));
-    for (const i of [0, 1, 2, 3, 4]) {
+    for (const i of [0, 1, 3, 4, 5]) {
       await page.click(`.pager button[data-section="${i}"]`);
       await page.waitForFunction((n) => document.body.dataset.page === String(n), {}, i);
     }
